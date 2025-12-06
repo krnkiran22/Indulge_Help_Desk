@@ -19,14 +19,22 @@ export default function LoginPage() {
     try {
       const response = await authAPI.login(email, password);
       
-      if (response.success && response.data?.token) {
-        localStorage.setItem('adminToken', response.data.token);
-        localStorage.setItem('adminUser', JSON.stringify(response.data.user));
+      // API returns { token, role } directly
+      if (response.token) {
+        localStorage.setItem('adminToken', response.token);
+        localStorage.setItem('adminRole', response.role);
+        // Store user info if available, otherwise use email
+        localStorage.setItem('adminUser', JSON.stringify({ 
+          full_name: email.split('@')[0],
+          email: email,
+          role: response.role 
+        }));
         router.push('/dashboard');
       } else {
         setError('Invalid credentials');
       }
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -34,7 +42,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-900 via-black to-zinc-900">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-zinc-900 via-black to-zinc-900">
       <div className="w-full max-w-md p-8 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Indulge Help Desk</h1>

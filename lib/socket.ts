@@ -9,6 +9,9 @@ export const initializeSocket = (token: string) => {
     return socket;
   }
 
+  console.log('🔌 Initializing socket with token:', token ? 'Token exists' : 'No token');
+  console.log('🔌 Socket URL:', SOCKET_URL);
+
   socket = io(SOCKET_URL, {
     auth: {
       token,
@@ -28,7 +31,12 @@ export const initializeSocket = (token: string) => {
   });
 
   socket.on('connect_error', (error) => {
-    console.error('Socket connection error:', error.message);
+    console.error('❌ Socket connection error:', error.message);
+    console.error('Full error:', error);
+  });
+
+  socket.on('error', (error) => {
+    console.error('❌ Socket error event:', error);
   });
 
   return socket;

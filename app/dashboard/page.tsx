@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { initializeSocket, disconnectSocket, getSocket } from '@/lib/socket';
 
@@ -22,14 +22,35 @@ export default function DashboardPage() {
   const [adminName, setAdminName] = useState('');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const selectedSessionRef = useRef<ChatSession | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedSessionRef.current = selectedSession;
+  }, [selectedSession]);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     const adminUser = localStorage.getItem('adminUser');
 
+    console.log('🔐 Admin Token:', token ? 'Token exists' : 'No token');
+    console.log('👤 Admin User:', adminUser);
+
     if (!token) {
       router.push('/login');
       return;
+    }
+
+    // Decode token to see what's inside (for debugging)
+    try {
+      const tokenParts = token.split('.');
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+        console.log('🔍 Decoded Token Payload:', payload);
+        console.log('🆔 User ID in token:', payload._id);
+      }
+    } catch (e) {
+      console.error('Failed to decode token:', e);
     }
 
     if (adminUser) {
@@ -42,6 +63,23 @@ export default function DashboardPage() {
     socket.on('connected', (data) => {
       console.log('Admin connected:', data);
       setLoading(false);
+    });
+
+    // Listen for active sessions (sent when admin connects)
+    socket.on('active_sessions', (data) => {
+      console.log('Active sessions received:', data);
+      if (data.sessions && data.sessions.length > 0) {
+        const formattedSessions: ChatSession[] = data.sessions.map((s: any) => ({
+          userId: s.userId,
+          userName: s.userName || 'User',
+          roomId: s.roomId,
+          lastMessage: s.lastMessage || 'Requested agent connection',
+          timestamp: new Date(s.requestedAt || s.connectedAt || new Date()),
+          unread: 0,
+          agentMode: true,
+        }));
+        setSessions(formattedSessions);
+      }
     });
 
     // Listen for users requesting agent connection
@@ -74,36 +112,103 @@ export default function DashboardPage() {
 
     // Listen for user messages
     socket.on('user_message', (data) => {
-      if (selectedSession && data.roomId === selectedSession.roomId) {
-        setMessages((prev) => [...prev, data]);
+      console.log('User message received:', data);
+      
+      // Add to messages if this is the selected session
+      if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
+        setMessages((prev) => [...prev, {
+          message: data.message,
+          role: 'user',
+          timestamp: data.timestamp,
+          attachments: data.attachments || []
+        }]);
       }
       
       // Update session list
+      setSessions((prev) => {
+        const existing = prev.find(s => s.roomId === data.roomId);
+        if (existing) {
+          return prev.map((s) =>
+            s.roomId === data.roomId
+              ? { ...s, lastMessage: data.message, timestamp: new Date(data.timestamp), unread: selectedSessionRef.current?.roomId === data.roomId ? 0 : s.unread + 1 }
+              : s
+          );
+        } else {
+          // New session from user message
+          return [
+            ...prev,
+            {
+              userId: data.userId,
+              userName: data.userName || 'User',
+              roomId: data.roomId,
+              lastMessage: data.message,
+              timestamp: new Date(data.timestamp),
+              unread: 1,
+              agentMode: true,
+            },
+          ];
+        }
+      });
+    });
+
+    // Listen for chat history
+    socket.on('chat_history', (data) => {
+      console.log('📜 Chat history received:', data);
+      console.log('📊 Number of messages:', data.messages?.length || 0);
+      if (data.success && data.messages) {
+        // Map database messages to display format
+        const formattedMessages = data.messages.map((msg: any) => ({
+          message: msg.message,
+          role: msg.role,
+          timestamp: msg.timestamp,
+          attachments: msg.attachments || [],
+          agentName: msg.metadata?.agentName
+        }));
+        console.log('✅ Setting messages:', formattedMessages.length);
+        setMessages(formattedMessages);
+      } else {
+        console.log('⚠️ No messages or failed:', data);
+        setMessages([]);
+      }
+    });
+
+    // Listen for AI responses (so admin can see AI replies in real-time)
+    socket.on('ai_response', (data) => {
+      console.log('AI response received:', data);
+      
+      // Add to messages if this is the selected session
+      if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
+        setMessages((prev) => [...prev, {
+          message: data.message,
+          role: 'assistant',
+          timestamp: data.timestamp,
+          attachments: []
+        }]);
+      }
+      
+      // Update session list with AI's response
       setSessions((prev) =>
         prev.map((s) =>
           s.roomId === data.roomId
-            ? { ...s, lastMessage: data.message, timestamp: new Date(), unread: s.unread + 1 }
+            ? { ...s, lastMessage: data.message.substring(0, 50) + '...', timestamp: new Date(data.timestamp) }
             : s
         )
       );
     });
 
-    // Listen for chat history
-    socket.on('chat_history', (data) => {
-      if (data.success) {
-        setMessages(data.messages);
-      }
-    });
-
     return () => {
       disconnectSocket();
     };
-  }, [router, selectedSession]);
+  }, [router]); // Removed selectedSession from dependencies
 
   const handleSelectSession = (session: ChatSession) => {
     setSelectedSession(session);
     const socket = getSocket();
     if (socket) {
+      // Let backend know admin joined this session
+      socket.emit('admin_join_session', { roomId: session.roomId });
+      
+      // Request chat history
       socket.emit('get_history', { roomId: session.roomId, limit: 100 });
     }
     // Mark as read

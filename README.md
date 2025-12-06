@@ -1,37 +1,115 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Indulge Help Desk - Admin Chat Portal
 
-## Getting Started
+## Overview
 
-First, run the development server:
+This is the admin portal for managing real-time chat conversations with Indulge users. When users request to speak with a human agent, admins can respond through this interface.
+
+## Features
+
+- ✅ Secure admin authentication
+- ✅ Real-time WebSocket chat with users
+- ✅ View all active chat sessions
+- ✅ Chat history for each conversation
+- ✅ Responsive design (mobile + desktop)
+- ✅ Agent mode detection
+- ✅ Unread message indicators
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit: **http://localhost:3000**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Admin Login
 
-## Learn More
+1. Navigate to `/login`
+2. Enter admin credentials (use existing backend user account)
+3. Click "Sign In"
 
-To learn more about Next.js, take a look at the following resources:
+### Dashboard
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. After login, redirects to `/dashboard`
+2. View all active chat sessions in the left sidebar
+3. Click on a session to view chat history and respond
+4. Type messages and click "Send" to chat with users
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How It Works
 
-## Deploy on Vercel
+**User Side (Mobile App):**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- User chats with AI
+- User clicks "Talk to Agent" → emits `request_agent_connection`
+- User enters "agent mode" (AI stops responding)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Admin Side (This Portal):**
+
+- Session appears with "Agent" badge
+- Admin clicks session → chat history loads
+- Admin sends messages → user receives instantly
+- Real-time bidirectional communication
+
+## File Structure
+
+```
+app/
+├── login/page.tsx       # Login page
+├── dashboard/page.tsx   # Main chat interface
+├── page.tsx             # Root redirect
+lib/
+├── api.ts               # REST API client
+└── socket.ts            # WebSocket client
+.env.local               # Environment config
+```
+
+## WebSocket Events
+
+**Admin Receives:**
+
+- `connected` - Connection established
+- `agent_connection_request` - User needs agent
+- `user_message` - Message from user
+- `chat_history` - Historical messages
+
+**Admin Sends:**
+
+- `agent_message` - Send message to user
+- `get_history` - Request chat history
+
+## Environment Variables
+
+```env
+NEXT_PUBLIC_API_URL=https://indulgeconcierge.com/api
+NEXT_PUBLIC_SOCKET_URL=https://indulgeconcierge.com
+```
+
+## Deployment
+
+```bash
+npm run build
+npm start
+```
+
+Or deploy to Vercel:
+
+```bash
+vercel
+```
+
+## Support
+
+Backend: https://indulgeconcierge.com
+Docs: See WEBSOCKET_CHAT_INTEGRATION.md in backend repo
+
 # Indulge_Help_Desk
