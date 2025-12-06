@@ -3,6 +3,7 @@
 ## Vercel Deployment Instructions
 
 ### Prerequisites
+
 - Vercel account
 - GitHub repository connected to Vercel
 
@@ -18,6 +19,7 @@ NEXT_PUBLIC_SOCKET_URL=https://indulgeconcierge.com
 ### Steps to Deploy:
 
 1. **Push to GitHub**
+
    ```bash
    git add .
    git commit -m "Deploy help desk"
@@ -25,6 +27,7 @@ NEXT_PUBLIC_SOCKET_URL=https://indulgeconcierge.com
    ```
 
 2. **In Vercel Dashboard:**
+
    - Go to your project settings
    - Navigate to "Environment Variables"
    - Add the two variables above
@@ -36,6 +39,7 @@ NEXT_PUBLIC_SOCKET_URL=https://indulgeconcierge.com
    - OR push a new commit to trigger automatic deployment
 
 ### Build Configuration (Automatic)
+
 - Framework: Next.js
 - Build Command: `npm run build`
 - Output Directory: `.next`
@@ -44,14 +48,17 @@ NEXT_PUBLIC_SOCKET_URL=https://indulgeconcierge.com
 ### Troubleshooting
 
 **Issue: localStorage errors during build**
+
 - Fixed: Added `typeof window !== 'undefined'` checks
 - The app now safely handles SSR
 
 **Issue: Environment variables not found**
+
 - Solution: Set them in Vercel dashboard under Environment Variables
 - They're prefixed with `NEXT_PUBLIC_` to make them available client-side
 
 **Issue: Outdated Next.js vulnerability**
+
 - Fixed: Updated to Next.js 16.0.7 (latest secure version)
 - Run `npm install` to get updates
 
@@ -70,6 +77,7 @@ npm start
 ```
 
 ### Features
+
 - ✅ Real-time chat with Socket.IO
 - ✅ Admin authentication
 - ✅ Live user sessions
@@ -78,6 +86,7 @@ npm start
 - ✅ Secure WebSocket connections
 
 ### Tech Stack
+
 - Next.js 16.0.7
 - React 19.2.0
 - Socket.IO Client 4.8.1
@@ -85,7 +94,9 @@ npm start
 - Tailwind CSS
 
 ### Support
+
 For issues, check:
+
 1. Environment variables are set correctly
 2. Backend server is running at configured URL
 3. Socket.IO connection is successful (check browser console)
