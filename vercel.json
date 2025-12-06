@@ -1,4 +1,5 @@
 {
+  "name": "indulge-help-desk-v2",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
