@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [messageInput, setMessageInput] = useState('');
   const [adminName, setAdminName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<'active' | 'all'>('active');
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
 
@@ -280,19 +281,59 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sessions List */}
-        <div className="w-80 bg-zinc-950 border-r border-zinc-800 overflow-y-auto">
+        <div className="w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col">
+          {/* Filter Tabs */}
           <div className="p-4 border-b border-zinc-800">
-            <h2 className="text-lg font-semibold">Active Chats</h2>
-            <p className="text-sm text-zinc-400">{sessions.length} conversations</p>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setActiveFilter('active')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeFilter === 'active'
+                    ? 'bg-yellow-500 text-black'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                Active Chats
+              </button>
+              <button
+                onClick={() => setActiveFilter('all')}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeFilter === 'all'
+                    ? 'bg-yellow-500 text-black'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                All Chats
+              </button>
+            </div>
+            <p className="text-sm text-zinc-400">
+              {activeFilter === 'active'
+                ? `${sessions.filter(s => s.agentMode).length} active`
+                : `${sessions.length} total conversations`}
+            </p>
           </div>
-          <div className="divide-y divide-zinc-800">
-            {sessions.length === 0 ? (
-              <div className="p-4 text-center text-zinc-500">
-                <p>No active chats</p>
-                <p className="text-sm mt-2">Waiting for users to request agent...</p>
-              </div>
-            ) : (
-              sessions.map((session) => (
+          
+          {/* Sessions List */}
+          <div className="flex-1 overflow-y-auto divide-y divide-zinc-800">
+            {(() => {
+              const filteredSessions = activeFilter === 'active' 
+                ? sessions.filter(s => s.agentMode)
+                : sessions;
+              
+              if (filteredSessions.length === 0) {
+                return (
+                  <div className="p-4 text-center text-zinc-500">
+                    <p>No {activeFilter === 'active' ? 'active' : ''} chats</p>
+                    <p className="text-sm mt-2">
+                      {activeFilter === 'active' 
+                        ? 'Waiting for users to request agent...'
+                        : 'No chat history available'}
+                    </p>
+                  </div>
+                );
+              }
+              
+              return filteredSessions.map((session) => (
                 <button
                   key={session.roomId}
                   onClick={() => handleSelectSession(session)}
@@ -322,8 +363,8 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </button>
-              ))
-            )}
+              ));
+            })()}
           </div>
         </div>
 
@@ -353,6 +394,30 @@ export default function DashboardPage() {
                           : 'bg-zinc-900 text-white'
                       }`}
                     >
+                      {/* Display attachments (images) */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mb-2 space-y-2">
+                          {msg.attachments.map((attachment: any, attIdx: number) => {
+                            if (attachment.type === 'image') {
+                              const imageUrl = attachment.base64Data
+                                ? `data:${attachment.mimeType || 'image/jpeg'};base64,${attachment.base64Data}`
+                                : attachment.url || attachment.uri;
+                              
+                              return (
+                                <img
+                                  key={attIdx}
+                                  src={imageUrl}
+                                  alt={attachment.filename || 'Image'}
+                                  className="max-w-full rounded-lg"
+                                  style={{ maxHeight: '300px', objectFit: 'contain' }}
+                                />
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      )}
+                      
                       <p className="text-sm">{msg.message}</p>
                       <p className="text-xs mt-1 opacity-70">
                         {new Date(msg.timestamp).toLocaleTimeString()}
