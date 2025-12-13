@@ -173,9 +173,39 @@ export default function DashboardPage() {
       }
     });
 
+    // Listen for user messages (when user sends message in AGENT mode)
+    socket.on('user_message', (data) => {
+      console.log('👤 User message received:', data);
+      
+      // Add to messages if this is the selected session
+      if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
+        setMessages((prev) => [...prev, {
+          message: data.message,
+          role: 'user',
+          timestamp: data.timestamp,
+          attachments: data.attachments || [],
+          userName: data.userName
+        }]);
+      }
+      
+      // Update session list with user's message
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.roomId === data.roomId
+            ? { 
+                ...s, 
+                lastMessage: data.message.substring(0, 50) + (data.message.length > 50 ? '...' : ''), 
+                timestamp: new Date(data.timestamp),
+                unread: selectedSessionRef.current?.roomId === data.roomId ? s.unread : s.unread + 1
+              }
+            : s
+        )
+      );
+    });
+
     // Listen for AI responses (so admin can see AI replies in real-time)
     socket.on('ai_response', (data) => {
-      console.log('AI response received:', data);
+      console.log('🤖 AI response received:', data);
       
       // Add to messages if this is the selected session
       if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
@@ -195,6 +225,20 @@ export default function DashboardPage() {
             : s
         )
       );
+    });
+
+    // Listen for agent message echo (don't add if we already added it optimistically)
+    socket.on('agent_message', (data) => {
+      console.log('👔 Agent message echo received:', data);
+      // Backend echoes our own message back - we already added it optimistically, so skip
+      // But if another admin sent it, we should add it
+      // For now, just log it to avoid duplicates
+    });
+
+    // Listen for message sent confirmation
+    socket.on('message_sent', (data) => {
+      console.log('✅ Message sent confirmation:', data);
+      // Message successfully delivered - already added optimistically
     });
 
     return () => {
