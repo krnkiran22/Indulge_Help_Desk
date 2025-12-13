@@ -24,11 +24,16 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState<'active' | 'all'>('active');
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
+  const sessionsRef = useRef<ChatSession[]>([]);
 
-  // Keep ref in sync with state
+  // Keep refs in sync with state
   useEffect(() => {
     selectedSessionRef.current = selectedSession;
   }, [selectedSession]);
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -175,10 +180,22 @@ export default function DashboardPage() {
 
     // Listen for user messages (when user sends message in AGENT mode)
     socket.on('user_message', (data) => {
-      console.log('👤 User message received:', data);
+      console.log('👤 User message received:', {
+        message: data.message,
+        roomId: data.roomId,
+        userId: data.userId,
+        userName: data.userName,
+        timestamp: data.timestamp
+      });
+      console.log('🎯 Currently selected session:', {
+        roomId: selectedSessionRef.current?.roomId,
+        userName: selectedSessionRef.current?.userName
+      });
+      console.log('🔍 Room match:', data.roomId === selectedSessionRef.current?.roomId);
       
       // Add to messages if this is the selected session
       if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
+        console.log('✅ Adding user message to chat');
         setMessages((prev) => [...prev, {
           message: data.message,
           role: 'user',
@@ -186,6 +203,8 @@ export default function DashboardPage() {
           attachments: data.attachments || [],
           userName: data.userName
         }]);
+      } else {
+        console.log('⚠️ Not adding - room mismatch or no session selected');
       }
       
       // Update session list with user's message
@@ -205,10 +224,23 @@ export default function DashboardPage() {
 
     // Listen for AI responses (so admin can see AI replies in real-time)
     socket.on('ai_response', (data) => {
-      console.log('🤖 AI response received:', data);
+      console.log('🤖 AI response received:', {
+        message: data.message,
+        roomId: data.roomId
+      });
       
-      // Add to messages if this is the selected session
-      if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
+      // Check if this session is in agent mode - if yes, ignore AI response
+      const session = sessionsRef.current.find(s => s.roomId === data.roomId);
+      if (session?.agentMode) {
+        console.log('⚠️ Ignoring AI response - session is in AGENT mode');
+        return;
+      }
+      
+      // Add to messages if this is the selected session and NOT in agent mode
+      if (selectedSessionRef.current && 
+          data.roomId === selectedSessionRef.current.roomId && 
+          !selectedSessionRef.current.agentMode) {
+        console.log('✅ Adding AI response to chat (AI mode)');
         setMessages((prev) => [...prev, {
           message: data.message,
           role: 'assistant',
@@ -217,10 +249,10 @@ export default function DashboardPage() {
         }]);
       }
       
-      // Update session list with AI's response
+      // Update session list with AI's response only if NOT in agent mode
       setSessions((prev) =>
         prev.map((s) =>
-          s.roomId === data.roomId
+          s.roomId === data.roomId && !s.agentMode
             ? { ...s, lastMessage: data.message.substring(0, 50) + '...', timestamp: new Date(data.timestamp) }
             : s
         )
@@ -247,12 +279,20 @@ export default function DashboardPage() {
   }, [router]); // Removed selectedSession from dependencies
 
   const handleSelectSession = (session: ChatSession) => {
+    console.log('🎯 Admin selecting session:', {
+      userId: session.userId,
+      userName: session.userName,
+      roomId: session.roomId,
+      agentMode: session.agentMode
+    });
     setSelectedSession(session);
     const socket = getSocket();
     if (socket) {
+      console.log('📤 Admin joining room:', session.roomId);
       // Let backend know admin joined this session
       socket.emit('admin_join_session', { roomId: session.roomId });
       
+      console.log('📤 Requesting chat history for room:', session.roomId);
       // Request chat history
       socket.emit('get_history', { roomId: session.roomId, limit: 100 });
     }
@@ -274,6 +314,12 @@ export default function DashboardPage() {
         role: 'agent',
         agentName: adminName,
       };
+
+      console.log('📤 Admin sending message:', {
+        message: messageInput,
+        roomId: selectedSession.roomId,
+        toUser: selectedSession.userName
+      });
 
       // Emit message to user
       socket.emit('agent_message', agentMessage);
