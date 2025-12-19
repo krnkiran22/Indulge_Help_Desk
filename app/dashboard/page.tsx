@@ -22,9 +22,10 @@ export default function DashboardPage() {
   const [adminName, setAdminName] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'active' | 'all'>('active');
-  const [linkInput, setLinkInput] = useState('');
-  const [linkTextInput, setLinkTextInput] = useState('');
-  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
   const sessionsRef = useRef<ChatSession[]>([]);
@@ -143,6 +144,18 @@ export default function DashboardPage() {
 
     // Listen for user messages (when user sends message in AGENT mode)
     socket.on('user_message', (data) => {
+      console.log('📨 [Help Desk] Received user_message event');
+      console.log('  Message:', data.message);
+      console.log('  Room:', data.roomId);
+      console.log('  Attachments received:', data.attachments?.length || 0);
+      if (data.attachments && data.attachments.length > 0) {
+        console.log('  Attachment details:', data.attachments.map((a: any) => ({ 
+          type: a.type, 
+          filename: a.filename,
+          hasBase64: !!a.base64Data,
+          hasUrl: !!a.url 
+        })));
+      }
       console.log('👤 User message received:', {
         message: data.message,
         roomId: data.roomId,
@@ -324,19 +337,72 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSendLink = () => {
-    if (!linkInput.trim() || !selectedSession) return;
-    
-    const linkAttachment = {
-      type: 'link',
-      url: linkInput,
-      linkText: linkTextInput || linkInput
-    };
-    
-    handleSendMessage({ preventDefault: () => {} } as any, [linkAttachment]);
-    setLinkInput('');
-    setLinkTextInput('');
-    setShowLinkModal(false);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please select a valid image (JPEG, PNG, GIF) or PDF file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    setShowFileModal(true);
+
+    // Create preview for images
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const handleSendFile = async () => {
+    if (!selectedFile || !selectedSession) return;
+
+    setUploadingFile(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Data = (reader.result as string).split(',')[1];
+        const dataUri = `data:${selectedFile.type};base64,${base64Data}`;
+        
+        const attachment = {
+          type: selectedFile.type.startsWith('image/') ? 'image' : 'pdf',
+          filename: selectedFile.name,
+          mimeType: selectedFile.type,
+          size: selectedFile.size,
+          base64Data: base64Data,
+          url: dataUri, // Add data URI for mobile app compatibility
+        };
+
+        handleSendMessage({ preventDefault: () => {} } as any, [attachment]);
+        
+        // Close modal and reset
+        setShowFileModal(false);
+        setSelectedFile(null);
+        setFilePreview(null);
+        setUploadingFile(false);
+      };
+      reader.readAsDataURL(selectedFile);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file');
+      setUploadingFile(false);
+    }
   };
 
   const handleLogout = () => {
@@ -555,14 +621,20 @@ export default function DashboardPage() {
               {/* Message Input */}
               <form onSubmit={(e) => handleSendMessage(e)} className="bg-zinc-950 border-t border-zinc-800 p-4">
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowLinkModal(true)}
-                    className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
-                    title="Add Link"
+                  <input
+                    type="file"
+                    id="file-upload"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                    title="Attach Image or PDF"
                   >
-                    🔗
-                  </button>
+                    📎
+                  </label>
                   <input
                     type="text"
                     value={messageInput}
@@ -580,38 +652,54 @@ export default function DashboardPage() {
                 </div>
               </form>
 
-              {/* Link Modal */}
-              {showLinkModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowLinkModal(false)}>
+              {/* File Upload Modal */}
+              {showFileModal && selectedFile && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowFileModal(false)}>
                   <div className="bg-zinc-900 rounded-lg p-6 w-96 max-w-[90%]" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold mb-4 text-yellow-500">Add Link</h3>
-                    <input
-                      type="url"
-                      value={linkInput}
-                      onChange={(e) => setLinkInput(e.target.value)}
-                      placeholder="Enter URL (e.g., https://example.com)"
-                      className="w-full px-4 py-2 mb-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    />
+                    <h3 className="text-xl font-bold mb-4 text-yellow-500">
+                      {selectedFile.type.startsWith('image/') ? 'Send Image' : 'Send PDF'}
+                    </h3>
+                    
+                    {/* File Preview */}
+                    {filePreview ? (
+                      <img src={filePreview} alt="Preview" className="w-full max-h-64 object-contain mb-4 rounded-lg bg-zinc-800" />
+                    ) : (
+                      <div className="w-full p-8 mb-4 rounded-lg bg-zinc-800 flex flex-col items-center justify-center">
+                        <span className="text-6xl mb-2">📑</span>
+                        <p className="text-sm text-zinc-400">{selectedFile.name}</p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Optional message */}
                     <input
                       type="text"
-                      value={linkTextInput}
-                      onChange={(e) => setLinkTextInput(e.target.value)}
-                      placeholder="Link text (optional)"
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      placeholder="Add a message (optional)"
                       className="w-full px-4 py-2 mb-4 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     />
+
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setShowLinkModal(false)}
+                        onClick={() => {
+                          setShowFileModal(false);
+                          setSelectedFile(null);
+                          setFilePreview(null);
+                        }}
                         className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+                        disabled={uploadingFile}
                       >
                         Cancel
                       </button>
                       <button
-                        onClick={handleSendLink}
-                        disabled={!linkInput.trim()}
+                        onClick={handleSendFile}
+                        disabled={uploadingFile}
                         className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black font-semibold rounded-lg transition-colors"
                       >
-                        Send Link
+                        {uploadingFile ? 'Sending...' : 'Send'}
                       </button>
                     </div>
                   </div>
