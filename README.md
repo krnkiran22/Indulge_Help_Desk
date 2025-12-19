@@ -4,6 +4,11 @@
 
 This is the admin portal for managing real-time chat conversations with Indulge users. When users request to speak with a human agent, admins can respond through this interface.
 
+
+comments like share in post isnt clicable
+in the explore ssection the posts that are not able to likable and commentable check the backend if we have the options then integrate it if we dont have that options let me know we can add the routes but make sure the route or the funtionality of the posts are there like check if the feature is avaialbe in the backned got it in our application we have posts for that we need to check prevoisly the likes and commets and share are there so check the backend 
+
+
 ## Features
 
 - ✅ Secure admin authentication

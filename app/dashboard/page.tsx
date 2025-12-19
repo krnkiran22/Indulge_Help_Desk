@@ -22,6 +22,9 @@ export default function DashboardPage() {
   const [adminName, setAdminName] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'active' | 'all'>('active');
+  const [linkInput, setLinkInput] = useState('');
+  const [linkTextInput, setLinkTextInput] = useState('');
+  const [showLinkModal, setShowLinkModal] = useState(false);
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
   const sessionsRef = useRef<ChatSession[]>([]);
@@ -116,54 +119,14 @@ export default function DashboardPage() {
       });
     });
 
-    // Listen for user messages
-    socket.on('user_message', (data) => {
-      console.log('User message received:', data);
-      
-      // Add to messages if this is the selected session
-      if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
-        setMessages((prev) => [...prev, {
-          message: data.message,
-          role: 'user',
-          timestamp: data.timestamp,
-          attachments: data.attachments || []
-        }]);
-      }
-      
-      // Update session list
-      setSessions((prev) => {
-        const existing = prev.find(s => s.roomId === data.roomId);
-        if (existing) {
-          return prev.map((s) =>
-            s.roomId === data.roomId
-              ? { ...s, lastMessage: data.message, timestamp: new Date(data.timestamp), unread: selectedSessionRef.current?.roomId === data.roomId ? 0 : s.unread + 1 }
-              : s
-          );
-        } else {
-          // New session from user message
-          return [
-            ...prev,
-            {
-              userId: data.userId,
-              userName: data.userName || 'User',
-              roomId: data.roomId,
-              lastMessage: data.message,
-              timestamp: new Date(data.timestamp),
-              unread: 1,
-              agentMode: true,
-            },
-          ];
-        }
-      });
-    });
-
     // Listen for chat history
     socket.on('chat_history', (data) => {
       console.log('📜 Chat history received:', data);
       console.log('📊 Number of messages:', data.messages?.length || 0);
       if (data.success && data.messages) {
-        // Map database messages to display format
+        // Map database messages to display format with unique IDs
         const formattedMessages = data.messages.map((msg: any) => ({
+          id: msg._id || `${msg.role}-${msg.timestamp}-${msg.message.substring(0, 20)}`, // Add unique ID
           message: msg.message,
           role: msg.role,
           timestamp: msg.timestamp,
@@ -185,7 +148,8 @@ export default function DashboardPage() {
         roomId: data.roomId,
         userId: data.userId,
         userName: data.userName,
-        timestamp: data.timestamp
+        timestamp: data.timestamp,
+        attachments: data.attachments?.length || 0
       });
       console.log('🎯 Currently selected session:', {
         roomId: selectedSessionRef.current?.roomId,
@@ -195,14 +159,35 @@ export default function DashboardPage() {
       
       // Add to messages if this is the selected session
       if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
-        console.log('✅ Adding user message to chat');
-        setMessages((prev) => [...prev, {
-          message: data.message,
-          role: 'user',
-          timestamp: data.timestamp,
-          attachments: data.attachments || [],
-          userName: data.userName
-        }]);
+        console.log('✅ Adding user message to chat with attachments:', data.attachments?.length || 0);
+        if (data.attachments && data.attachments.length > 0) {
+          console.log('📎 Attachments:', data.attachments.map((a: any) => ({ type: a.type, filename: a.filename })));
+        }
+        
+        // Check for duplicates before adding
+        setMessages((prev) => {
+          // Check if message already exists by ID or by content+timestamp
+          const isDuplicate = prev.some(msg => 
+            (msg.message === data.message &&
+            msg.role === 'user' &&
+            Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000)
+          );
+          
+          if (isDuplicate) {
+            console.log('⚠️ Duplicate user message detected, skipping');
+            return prev;
+          }
+          
+          // Add with unique ID
+          return [...prev, {
+            id: `user-${data.timestamp}-${data.userId}`,
+            message: data.message,
+            role: 'user',
+            timestamp: data.timestamp,
+            attachments: data.attachments || [],
+            userName: data.userName
+          }];
+        });
       } else {
         console.log('⚠️ Not adding - room mismatch or no session selected');
       }
@@ -302,23 +287,25 @@ export default function DashboardPage() {
     );
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent, attachments: any[] = []) => {
     e.preventDefault();
-    if (!messageInput.trim() || !selectedSession) return;
+    if ((!messageInput.trim() && attachments.length === 0) || !selectedSession) return;
 
     const socket = getSocket();
     if (socket) {
       const agentMessage = {
-        message: messageInput,
+        message: messageInput || 'Attachment',
         roomId: selectedSession.roomId,
         role: 'agent',
         agentName: adminName,
+        attachments: attachments
       };
 
       console.log('📤 Admin sending message:', {
         message: messageInput,
         roomId: selectedSession.roomId,
-        toUser: selectedSession.userName
+        toUser: selectedSession.userName,
+        attachments: attachments.length
       });
 
       // Emit message to user
@@ -335,6 +322,21 @@ export default function DashboardPage() {
 
       setMessageInput('');
     }
+  };
+
+  const handleSendLink = () => {
+    if (!linkInput.trim() || !selectedSession) return;
+    
+    const linkAttachment = {
+      type: 'link',
+      url: linkInput,
+      linkText: linkTextInput || linkInput
+    };
+    
+    handleSendMessage({ preventDefault: () => {} } as any, [linkAttachment]);
+    setLinkInput('');
+    setLinkTextInput('');
+    setShowLinkModal(false);
   };
 
   const handleLogout = () => {
@@ -484,7 +486,7 @@ export default function DashboardPage() {
                           : 'bg-zinc-900 text-white'
                       }`}
                     >
-                      {/* Display attachments (images) */}
+                      {/* Display attachments (images, PDFs, links) */}
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="mb-2 space-y-2">
                           {msg.attachments.map((attachment: any, attIdx: number) => {
@@ -503,6 +505,39 @@ export default function DashboardPage() {
                                 />
                               );
                             }
+                            if (attachment.type === 'pdf') {
+                              return (
+                                <a
+                                  key={attIdx}
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
+                                >
+                                  <span className="text-2xl">📑</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{attachment.filename || 'PDF Document'}</p>
+                                    {attachment.size && (
+                                      <p className="text-xs text-zinc-400">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p>
+                                    )}
+                                  </div>
+                                </a>
+                              );
+                            }
+                            if (attachment.type === 'link') {
+                              return (
+                                <a
+                                  key={attIdx}
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
+                                >
+                                  <span className="text-xl">🔗</span>
+                                  <p className="text-sm flex-1 min-w-0 truncate">{attachment.linkText || attachment.url}</p>
+                                </a>
+                              );
+                            }
                             return null;
                           })}
                         </div>
@@ -518,8 +553,16 @@ export default function DashboardPage() {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={handleSendMessage} className="bg-zinc-950 border-t border-zinc-800 p-4">
+              <form onSubmit={(e) => handleSendMessage(e)} className="bg-zinc-950 border-t border-zinc-800 p-4">
                 <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLinkModal(true)}
+                    className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+                    title="Add Link"
+                  >
+                    🔗
+                  </button>
                   <input
                     type="text"
                     value={messageInput}
@@ -536,6 +579,44 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </form>
+
+              {/* Link Modal */}
+              {showLinkModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowLinkModal(false)}>
+                  <div className="bg-zinc-900 rounded-lg p-6 w-96 max-w-[90%]" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-4 text-yellow-500">Add Link</h3>
+                    <input
+                      type="url"
+                      value={linkInput}
+                      onChange={(e) => setLinkInput(e.target.value)}
+                      placeholder="Enter URL (e.g., https://example.com)"
+                      className="w-full px-4 py-2 mb-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <input
+                      type="text"
+                      value={linkTextInput}
+                      onChange={(e) => setLinkTextInput(e.target.value)}
+                      placeholder="Link text (optional)"
+                      className="w-full px-4 py-2 mb-4 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowLinkModal(false)}
+                        className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSendLink}
+                        disabled={!linkInput.trim()}
+                        className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black font-semibold rounded-lg transition-colors"
+                      >
+                        Send Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-zinc-500">
