@@ -14,6 +14,66 @@ interface ChatSession {
   agentMode: boolean;
 }
 
+// URL detection regex - improved to catch all URL patterns
+const URL_REGEX = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(\b[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/gi;
+
+// Parse text and convert URLs to clickable links
+const parseTextWithLinks = (text: string, isAgent: boolean = false) => {
+  if (!text) return text;
+
+  const parts: (string | React.ReactElement)[] = [];
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+
+  // Create a new regex instance for each parse to reset state
+  const regex = new RegExp(URL_REGEX.source, URL_REGEX.flags);
+
+  while ((match = regex.exec(text)) !== null) {
+    const url = match[0];
+    const index = match.index;
+
+    // Add text before the URL
+    if (index > lastIndex) {
+      parts.push(text.substring(lastIndex, index));
+    }
+
+    // Prepare the full URL
+    let fullUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      fullUrl = 'https://' + url;
+    }
+
+    // Add the clickable link - use black for agent messages, blue for others
+    parts.push(
+      <a
+        key={`link-${key++}`}
+        href={fullUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${isAgent ? 'text-black' : 'text-blue-400'} hover:opacity-80 underline font-semibold`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url}
+      </a>
+    );
+
+    lastIndex = index + url.length;
+  }
+
+  // Add remaining text after the last URL
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  // If no parts were created (no URLs found), return the original text
+  if (parts.length === 0) {
+    return text;
+  }
+
+  return parts;
+};
+
 export default function DashboardPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
@@ -673,7 +733,7 @@ export default function DashboardPage() {
                         </div>
                       )}
                       
-                      <p className="text-sm">{msg.message}</p>
+                      <p className="text-sm whitespace-pre-wrap break-all">{parseTextWithLinks(msg.message, msg.role === 'agent')}</p>
                       <p className="text-xs mt-1 opacity-70">
                         {new Date(msg.timestamp).toLocaleTimeString()}
                       </p>
