@@ -125,6 +125,23 @@ export default function DashboardPage() {
       console.log('📜 Chat history received:', data);
       console.log('📊 Number of messages:', data.messages?.length || 0);
       if (data.success && data.messages) {
+        // Log detailed attachment info for each message
+        data.messages.forEach((msg: any, idx: number) => {
+          if (msg.attachments && msg.attachments.length > 0) {
+            console.log(`📎 Message ${idx} (${msg.role}) has attachments:`, {
+              message: msg.message,
+              attachments: msg.attachments.map((a: any) => ({
+                type: a.type,
+                filename: a.filename,
+                hasBase64: !!a.base64Data,
+                hasUrl: !!a.url,
+                base64Length: a.base64Data?.length || 0,
+                mimeType: a.mimeType
+              }))
+            });
+          }
+        });
+        
         // Map database messages to display format with unique IDs
         const formattedMessages = data.messages.map((msg: any) => ({
           id: msg._id || `${msg.role}-${msg.timestamp}-${msg.message.substring(0, 20)}`, // Add unique ID
@@ -135,6 +152,7 @@ export default function DashboardPage() {
           agentName: msg.metadata?.agentName
         }));
         console.log('✅ Setting messages:', formattedMessages.length);
+        console.log('📋 Messages with attachments:', formattedMessages.filter((m: any) => m.attachments?.length > 0).length);
         setMessages(formattedMessages);
       } else {
         console.log('⚠️ No messages or failed:', data);
@@ -307,7 +325,7 @@ export default function DashboardPage() {
     const socket = getSocket();
     if (socket) {
       const agentMessage = {
-        message: messageInput || 'Attachment',
+        message: messageInput.trim() || (attachments.length > 0 ? '' : ''),
         roomId: selectedSession.roomId,
         role: 'agent',
         agentName: adminName,
@@ -318,8 +336,17 @@ export default function DashboardPage() {
         message: messageInput,
         roomId: selectedSession.roomId,
         toUser: selectedSession.userName,
-        attachments: attachments.length
+        attachments: attachments.length,
+        attachmentDetails: attachments.map(a => ({
+          type: a.type,
+          filename: a.filename,
+          hasBase64: !!a.base64Data,
+          base64Length: a.base64Data?.length || 0,
+          hasUrl: !!a.url,
+          size: a.size
+        }))
       });
+      console.log('📤 Full agent message payload:', JSON.stringify(agentMessage).substring(0, 1000));
 
       // Emit message to user
       socket.emit('agent_message', agentMessage);
@@ -538,7 +565,24 @@ export default function DashboardPage() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.map((msg, idx) => (
+                {messages.map((msg, idx) => {
+                  // Debug log for each message
+                  if (msg.attachments && msg.attachments.length > 0) {
+                    console.log(`🎨 Rendering message ${idx} (${msg.role}) with attachments:`, {
+                      message: msg.message?.substring(0, 50),
+                      attachmentCount: msg.attachments.length,
+                      attachments: msg.attachments.map((a: any) => ({
+                        type: a.type,
+                        filename: a.filename,
+                        hasBase64: !!a.base64Data,
+                        hasUrl: !!a.url,
+                        mimeType: a.mimeType,
+                        size: a.size
+                      }))
+                    });
+                  }
+                  
+                  return (
                   <div
                     key={idx}
                     className={`flex ${msg.role === 'agent' || msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
@@ -556,6 +600,13 @@ export default function DashboardPage() {
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="mb-2 space-y-2">
                           {msg.attachments.map((attachment: any, attIdx: number) => {
+                            console.log(`🖼️ Rendering attachment ${attIdx} in message ${idx}:`, {
+                              type: attachment.type,
+                              filename: attachment.filename,
+                              hasBase64: !!attachment.base64Data,
+                              hasUrl: !!attachment.url
+                            });
+                            
                             if (attachment.type === 'image') {
                               const imageUrl = attachment.base64Data
                                 ? `data:${attachment.mimeType || 'image/jpeg'};base64,${attachment.base64Data}`
@@ -572,13 +623,25 @@ export default function DashboardPage() {
                               );
                             }
                             if (attachment.type === 'pdf') {
+                              // Construct PDF URL from base64 if URL is not present
+                              const pdfUrl = attachment.url || (attachment.base64Data 
+                                ? `data:${attachment.mimeType || 'application/pdf'};base64,${attachment.base64Data}`
+                                : null);
+                              
                               return (
                                 <a
                                   key={attIdx}
-                                  href={attachment.url}
+                                  href={pdfUrl || '#'}
+                                  download={attachment.filename || 'document.pdf'}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
+                                  onClick={(e) => {
+                                    if (!pdfUrl) {
+                                      e.preventDefault();
+                                      alert('PDF file is not available');
+                                    }
+                                  }}
                                 >
                                   <span className="text-2xl">📑</span>
                                   <div className="flex-1 min-w-0">
@@ -586,6 +649,7 @@ export default function DashboardPage() {
                                     {attachment.size && (
                                       <p className="text-xs text-zinc-400">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p>
                                     )}
+                                    <p className="text-xs text-zinc-500">Click to download</p>
                                   </div>
                                 </a>
                               );
@@ -615,7 +679,8 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Message Input */}

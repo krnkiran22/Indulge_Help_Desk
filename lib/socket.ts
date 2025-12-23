@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://indulgeconcierge.com';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8000';
 
 let socket: Socket | null = null;
 
@@ -11,6 +11,7 @@ export const initializeSocket = (token: string) => {
 
   console.log('🔌 Initializing socket with token:', token ? 'Token exists' : 'No token');
   console.log('🔌 Socket URL:', SOCKET_URL);
+  console.log('🔌 Creating socket.io connection...');
 
   socket = io(SOCKET_URL, {
     auth: {
@@ -23,7 +24,9 @@ export const initializeSocket = (token: string) => {
   });
 
   socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket?.id);
+    console.log('✅ Socket connected successfully!');
+    console.log('✅ Socket ID:', socket?.id);
+    console.log('✅ Socket connected:', socket?.connected);
   });
 
   socket.on('disconnect', (reason) => {
