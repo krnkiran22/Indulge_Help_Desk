@@ -86,6 +86,8 @@ export default function DashboardPage() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [showFileModal, setShowFileModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
   const sessionsRef = useRef<ChatSession[]>([]);
@@ -677,8 +679,12 @@ export default function DashboardPage() {
                                   key={attIdx}
                                   src={imageUrl}
                                   alt={attachment.filename || 'Image'}
-                                  className="max-w-full rounded-lg"
+                                  className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                   style={{ maxHeight: '300px', objectFit: 'contain' }}
+                                  onClick={() => {
+                                    setImagePreviewUrl(imageUrl);
+                                    setShowImagePreview(true);
+                                  }}
                                 />
                               );
                             }
@@ -853,6 +859,42 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {showImagePreview && imagePreviewUrl && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95"
+          onClick={() => setShowImagePreview(false)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setShowImagePreview(false)}
+            className="absolute top-4 right-4 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-black bg-opacity-60 hover:bg-opacity-80 transition-all"
+          >
+            <svg
+              className="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          {/* Full-screen image */}
+          <img
+            src={imagePreviewUrl}
+            alt="Full screen preview"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
