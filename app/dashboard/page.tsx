@@ -259,12 +259,22 @@ export default function DashboardPage() {
         
         // Check for duplicates before adding
         setMessages((prev) => {
-          // Check if message already exists by ID or by content+timestamp
-          const isDuplicate = prev.some(msg => 
-            (msg.message === data.message &&
-            msg.role === 'user' &&
-            Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000)
-          );
+          // Check if message already exists by ID or by content+timestamp+attachments
+          const isDuplicate = prev.some(msg => {
+            const sameContent = msg.message === data.message;
+            const sameRole = msg.role === 'user';
+            const sameTime = Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000;
+            const sameAttachmentCount = (msg.attachments?.length || 0) === (data.attachments?.length || 0);
+            
+            // For attachment-only messages, also check attachment filenames
+            if (!data.message || data.message.trim() === '') {
+              const sameAttachments = JSON.stringify(msg.attachments?.map((a: any) => a.filename).sort()) === 
+                                     JSON.stringify(data.attachments?.map((a: any) => a.filename).sort());
+              return sameContent && sameRole && sameTime && sameAttachments;
+            }
+            
+            return sameContent && sameRole && sameTime && sameAttachmentCount;
+          });
           
           if (isDuplicate) {
             console.log('⚠️ Duplicate user message detected, skipping');
@@ -287,16 +297,23 @@ export default function DashboardPage() {
       
       // Update session list with user's message
       setSessions((prev) =>
-        prev.map((s) =>
-          s.roomId === data.roomId
-            ? { 
-                ...s, 
-                lastMessage: data.message.substring(0, 50) + (data.message.length > 50 ? '...' : ''), 
-                timestamp: new Date(data.timestamp),
-                unread: selectedSessionRef.current?.roomId === data.roomId ? s.unread : s.unread + 1
-              }
-            : s
-        )
+        prev.map((s) => {
+          if (s.roomId === data.roomId) {
+            // Show attachment indicator if message is empty
+            let displayMessage = data.message || '';
+            if (!displayMessage && data.attachments && data.attachments.length > 0) {
+              displayMessage = `📎 ${data.attachments.length} attachment(s)`;
+            }
+            
+            return { 
+              ...s, 
+              lastMessage: displayMessage.substring(0, 50) + (displayMessage.length > 50 ? '...' : ''), 
+              timestamp: new Date(data.timestamp),
+              unread: selectedSessionRef.current?.roomId === data.roomId ? s.unread : s.unread + 1
+            };
+          }
+          return s;
+        })
       );
     });
 
@@ -337,12 +354,32 @@ export default function DashboardPage() {
       );
     });
 
-    // Listen for agent message echo (don't add if we already added it optimistically)
+    // Listen for agent message echo from server
     socket.on('agent_message', (data) => {
       console.log('👔 Agent message echo received:', data);
-      // Backend echoes our own message back - we already added it optimistically, so skip
-      // But if another admin sent it, we should add it
-      // For now, just log it to avoid duplicates
+      // Update the optimistic message with the server version (which has _id)
+      setMessages((prev) => {
+        // Check if we already have this message (by timestamp + message content)
+        const exists = prev.some(msg => 
+          msg.message === data.message && 
+          msg.role === 'agent' &&
+          Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
+        );
+        
+        if (exists) {
+          // Update the existing optimistic message with server data
+          return prev.map(msg => 
+            msg.message === data.message && 
+            msg.role === 'agent' &&
+            Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
+              ? { ...data, id: data._id || msg.id }
+              : msg
+          );
+        } else {
+          // New message from another admin
+          return [...prev, { ...data, id: data._id }];
+        }
+      });
     });
 
     // Listen for message sent confirmation
@@ -385,45 +422,63 @@ export default function DashboardPage() {
     if ((!messageInput.trim() && attachments.length === 0) || !selectedSession) return;
 
     const socket = getSocket();
-    if (socket) {
-      const agentMessage = {
-        message: messageInput.trim() || (attachments.length > 0 ? '' : ''),
-        roomId: selectedSession.roomId,
-        role: 'agent',
-        agentName: adminName,
-        attachments: attachments
-      };
-
-      console.log('📤 Admin sending message:', {
-        message: messageInput,
-        roomId: selectedSession.roomId,
-        toUser: selectedSession.userName,
-        attachments: attachments.length,
-        attachmentDetails: attachments.map(a => ({
-          type: a.type,
-          filename: a.filename,
-          hasBase64: !!a.base64Data,
-          base64Length: a.base64Data?.length || 0,
-          hasUrl: !!a.url,
-          size: a.size
-        }))
-      });
-      console.log('📤 Full agent message payload:', JSON.stringify(agentMessage).substring(0, 1000));
-
-      // Emit message to user
-      socket.emit('agent_message', agentMessage);
-
-      // Add to local messages
-      setMessages((prev) => [
-        ...prev,
-        {
-          ...agentMessage,
-          timestamp: new Date(),
-        },
-      ]);
-
-      setMessageInput('');
+    console.log('🔍 Socket exists?', !!socket);
+    console.log('🔍 Socket connected?', socket?.connected);
+    console.log('🔍 Socket ID:', socket?.id);
+    
+    if (!socket || !socket.connected) {
+      console.error('❌ Socket is not connected! Cannot send message.');
+      alert('Connection lost. Please refresh the page.');
+      return;
     }
+    
+    const agentMessage = {
+      message: messageInput.trim() || (attachments.length > 0 ? '' : ''),
+      roomId: selectedSession.roomId,
+      role: 'agent',
+      agentName: adminName,
+      attachments: attachments
+    };
+
+    console.log('📤 Admin sending message:', {
+      message: messageInput,
+      roomId: selectedSession.roomId,
+      toUser: selectedSession.userName,
+      attachments: attachments.length,
+      attachmentDetails: attachments.map(a => ({
+        type: a.type,
+        filename: a.filename,
+        hasBase64: !!a.base64Data,
+        base64Length: a.base64Data?.length || 0,
+        hasUrl: !!a.url,
+        size: a.size
+      }))
+    });
+    console.log('📤 Full agent message payload:', JSON.stringify(agentMessage).substring(0, 1000));
+
+    // Emit message to user with acknowledgment callback
+    console.log('🚀 About to emit agent_message...');
+    socket.emit('agent_message', agentMessage, (response: any) => {
+      if (response?.success) {
+        console.log('✅ Message acknowledged by server:', response);
+      } else {
+        console.error('❌ Server rejected message:', response);
+      }
+    });
+    console.log('✅ agent_message emitted successfully');
+
+    // Add to local messages optimistically
+    const tempId = `temp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        ...agentMessage,
+        id: tempId,
+        timestamp: new Date(),
+      },
+    ]);
+
+    setMessageInput('');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -459,13 +514,22 @@ export default function DashboardPage() {
   };
 
   const handleSendFile = async () => {
-    if (!selectedFile || !selectedSession) return;
+    console.log('🚀 handleSendFile called!');
+    console.log('📎 Selected file:', selectedFile?.name);
+    console.log('👤 Selected session:', selectedSession?.userName, selectedSession?.roomId);
+    
+    if (!selectedFile || !selectedSession) {
+      console.error('❌ Missing file or session:', { selectedFile: !!selectedFile, selectedSession: !!selectedSession });
+      return;
+    }
 
+    console.log('✅ Proceeding with file upload...');
     setUploadingFile(true);
 
     try {
       const reader = new FileReader();
       reader.onloadend = () => {
+        console.log('📖 FileReader finished reading file');
         const base64Data = (reader.result as string).split(',')[1];
         const dataUri = `data:${selectedFile.type};base64,${base64Data}`;
         
@@ -739,7 +803,10 @@ export default function DashboardPage() {
                         </div>
                       )}
                       
-                      <p className="text-sm whitespace-pre-wrap break-all">{parseTextWithLinks(msg.message, msg.role === 'agent')}</p>
+                      {/* Only show message text if it exists */}
+                      {msg.message && msg.message.trim() && (
+                        <p className="text-sm whitespace-pre-wrap break-all">{parseTextWithLinks(msg.message, msg.role === 'agent')}</p>
+                      )}
                       <p className="text-xs mt-1 opacity-70">
                         {new Date(msg.timestamp).toLocaleTimeString()}
                       </p>
