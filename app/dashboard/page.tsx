@@ -734,9 +734,35 @@ export default function DashboardPage() {
                             });
                             
                             if (attachment.type === 'image') {
-                              const imageUrl = attachment.base64Data
-                                ? `data:${attachment.mimeType || 'image/jpeg'};base64,${attachment.base64Data}`
-                                : attachment.url || attachment.uri;
+                              // Construct image URL - handle base64, regular URL, or data URL
+                              let imageUrl = '';
+                              
+                              if (attachment.base64Data) {
+                                // Has base64 data - create data URL
+                                imageUrl = `data:${attachment.mimeType || 'image/jpeg'};base64,${attachment.base64Data}`;
+                              } else if (attachment.url) {
+                                // Check if URL is already a data URL or regular URL
+                                imageUrl = attachment.url;
+                              } else if (attachment.uri) {
+                                // Fallback to uri field
+                                imageUrl = attachment.uri;
+                              }
+
+                              console.log('🖼️ Image attachment:', {
+                                filename: attachment.filename,
+                                hasBase64: !!attachment.base64Data,
+                                hasUrl: !!attachment.url,
+                                urlPreview: imageUrl?.substring(0, 100),
+                                isDataUrl: imageUrl?.startsWith('data:')
+                              });
+                              
+                              if (!imageUrl) {
+                                return (
+                                  <div key={attIdx} className="p-4 bg-zinc-800/50 rounded-lg text-zinc-400 text-sm">
+                                    📷 Image unavailable: {attachment.filename || 'Unknown'}
+                                  </div>
+                                );
+                              }
                               
                               return (
                                 <img
@@ -748,6 +774,10 @@ export default function DashboardPage() {
                                   onClick={() => {
                                     setImagePreviewUrl(imageUrl);
                                     setShowImagePreview(true);
+                                  }}
+                                  onError={(e) => {
+                                    console.error('❌ Failed to load image:', attachment.filename);
+                                    (e.target as HTMLImageElement).style.display = 'none';
                                   }}
                                 />
                               );
