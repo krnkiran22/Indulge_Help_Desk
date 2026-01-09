@@ -74,6 +74,42 @@ const parseTextWithLinks = (text: string, isAgent: boolean = false) => {
   return parts;
 };
 
+// Format date separator (Today, Yesterday, or date)
+const formatDateSeparator = (date: Date): string => {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const messageDate = new Date(date);
+  
+  // Reset time to compare dates only
+  today.setHours(0, 0, 0, 0);
+  yesterday.setHours(0, 0, 0, 0);
+  messageDate.setHours(0, 0, 0, 0);
+
+  if (messageDate.getTime() === today.getTime()) {
+    return 'Today';
+  } else if (messageDate.getTime() === yesterday.getTime()) {
+    return 'Yesterday';
+  } else {
+    // Format as "Month Day, Year" (e.g., "January 9, 2026")
+    return messageDate.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  }
+};
+
+// Check if two dates are on different days
+const isDifferentDay = (date1: Date, date2: Date): boolean => {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  return d1.getTime() !== d2.getTime();
+};
+
 export default function DashboardPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
@@ -708,9 +744,23 @@ export default function DashboardPage() {
                     });
                   }
                   
+                  // Check if we need to show a date separator
+                  const showDateSeparator = idx === 0 || 
+                    isDifferentDay(new Date(messages[idx - 1].timestamp), new Date(msg.timestamp));
+                  
                   return (
+                    <div key={idx}>
+                      {/* Date Separator */}
+                      {showDateSeparator && (
+                        <div className="flex items-center justify-center my-4">
+                          <div className="px-4 py-1.5 bg-zinc-800 rounded-full text-xs text-zinc-400 font-medium">
+                            {formatDateSeparator(new Date(msg.timestamp))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Message */}
                   <div
-                    key={idx}
                     className={`flex ${msg.role === 'agent' || msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
@@ -842,6 +892,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
+                    </div>
                   );
                 })}
               </div>
