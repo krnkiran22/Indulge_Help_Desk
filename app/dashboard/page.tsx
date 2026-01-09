@@ -898,7 +898,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={(e) => handleSendMessage(e)} className="bg-zinc-950 border-t border-zinc-800 p-4">
+              <div className="bg-zinc-950 border-t border-zinc-800 p-4">
                 <div className="flex gap-2">
                   <input
                     type="file"
@@ -914,22 +914,32 @@ export default function DashboardPage() {
                   >
                     📎
                   </label>
-                  <input
-                    type="text"
+                  <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     placeholder="Type your message..."
-                    className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    rows={1}
+                    className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
+                    style={{ minHeight: '48px', maxHeight: '200px' }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 200) + 'px';
+                    }}
                   />
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSendMessage(e);
+                    }}
                     disabled={!messageInput.trim()}
                     className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black font-semibold rounded-lg transition-colors"
                   >
                     Send
                   </button>
                 </div>
-              </form>
+              </div>
 
               {/* File Upload Modal */}
               {showFileModal && selectedFile && (
