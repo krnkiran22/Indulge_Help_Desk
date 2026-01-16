@@ -28,36 +28,35 @@ export interface NotificationOptions {
 export const showUserConnectionNotification = (options: NotificationOptions) => {
   const { userName, userId, roomId, message } = options;
 
-  if (Notification.permission !== 'granted') {
-    console.log('Notification permission not granted');
-    return null;
-  }
+  console.log('🔔 Attempting to show notification for:', userName);
+  console.log('🔔 Notification permission:', Notification.permission);
 
-  // Check if the page is currently visible/focused
-  const isPageVisible = document.visibilityState === 'visible' && document.hasFocus();
-  
-  // Only show notification if page is not visible
-  if (isPageVisible) {
-    console.log('Page is visible, skipping notification');
+  if (Notification.permission !== 'granted') {
+    console.warn('❌ Notification permission not granted:', Notification.permission);
     return null;
   }
 
   const title = `${userName} needs assistance`;
   const body = message || 'Click to open chat';
 
-  const notification = new Notification(title, {
-    body,
-    icon: '/favicon.ico', // Make sure you have a favicon
-    badge: '/favicon.ico',
-    tag: `user-${userId}`, // Prevents duplicate notifications for same user
-    requireInteraction: false,
-    silent: false,
-    data: {
-      userId,
-      roomId,
-      userName,
-    },
-  });
+  console.log('✅ Creating notification:', { title, body });
+
+  try {
+    const notification = new Notification(title, {
+      body,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      tag: `user-${userId}`,
+      requireInteraction: true, // Keep notification visible until user interacts
+      silent: false,
+      data: {
+        userId,
+        roomId,
+        userName,
+      },
+    });
+
+    console.log('✅ Notification created successfully');
 
   // Handle notification click - redirect to user's chat
   notification.onclick = (event) => {
@@ -80,10 +79,14 @@ export const showUserConnectionNotification = (options: NotificationOptions) => 
   };
 
   notification.onerror = (error) => {
-    console.error('Notification error:', error);
+    console.error('❌ Notification error:', error);
   };
 
   return notification;
+  } catch (error) {
+    console.error('❌ Failed to create notification:', error);
+    return null;
+  }
 };
 
 export const showNewMessageNotification = (
@@ -92,48 +95,57 @@ export const showNewMessageNotification = (
   userId: string,
   roomId: string
 ) => {
-  if (Notification.permission !== 'granted') {
-    return null;
-  }
+  console.log('🔔 Attempting to show message notification from:', userName);
+  console.log('🔔 Notification permission:', Notification.permission);
 
-  // Check if the page is currently visible/focused
-  const isPageVisible = document.visibilityState === 'visible' && document.hasFocus();
-  
-  // Only show notification if page is not visible
-  if (isPageVisible) {
+  if (Notification.permission !== 'granted') {
+    console.warn('❌ Notification permission not granted');
     return null;
   }
 
   const title = `New message from ${userName}`;
   const body = message.length > 100 ? message.substring(0, 100) + '...' : message;
 
-  const notification = new Notification(title, {
-    body,
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: `message-${userId}`,
-    requireInteraction: false,
-    silent: false,
-    data: {
-      userId,
-      roomId,
-      userName,
-    },
-  });
+  console.log('✅ Creating message notification:', { title, body });
 
-  notification.onclick = (event) => {
-    event.preventDefault();
-    window.focus();
-    
-    sessionStorage.setItem('selectUserId', userId);
-    sessionStorage.setItem('selectRoomId', roomId);
-    
-    window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
-      detail: { userId, roomId, userName }
-    }));
-    
-    notification.close();
-  };
+  try {
+    const notification = new Notification(title, {
+      body,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      tag: `message-${userId}`,
+      requireInteraction: false,
+      silent: false,
+      data: {
+        userId,
+        roomId,
+        userName,
+      },
+    });
 
-  return notification;
+    console.log('✅ Message notification created successfully');
+
+    notification.onclick = (event) => {
+      event.preventDefault();
+      window.focus();
+      
+      sessionStorage.setItem('selectUserId', userId);
+      sessionStorage.setItem('selectRoomId', roomId);
+      
+      window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
+        detail: { userId, roomId, userName }
+      }));
+      
+      notification.close();
+    };
+
+    notification.onerror = (error) => {
+      console.error('❌ Message notification error:', error);
+    };
+
+    return notification;
+  } catch (error) {
+    console.error('❌ Failed to create message notification:', error);
+    return null;
+  }
 };

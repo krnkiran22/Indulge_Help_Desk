@@ -684,12 +684,29 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-yellow-500">Indulge Help Desk</h1>
           <p className="text-sm text-zinc-400">Admin: {adminName}</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-        >
-          Logout
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              console.log('🧪 Testing notification...');
+              console.log('🧪 Permission:', Notification.permission);
+              showUserConnectionNotification({
+                userId: 'test-user',
+                userName: 'Test User',
+                roomId: 'test-room',
+                message: 'This is a test notification'
+              });
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm"
+          >
+            Test Notification
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
