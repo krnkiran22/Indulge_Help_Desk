@@ -3,6 +3,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { initializeSocket, disconnectSocket, getSocket } from '@/lib/socket';
+import { 
+  requestNotificationPermission, 
+  showUserConnectionNotification,
+  showNewMessageNotification 
+} from '@/lib/notifications';
 
 interface ChatSession {
   userId: string;
@@ -149,6 +154,44 @@ export default function DashboardPage() {
       return;
     }
 
+    // Request notification permission
+    requestNotificationPermission().then(permission => {
+      console.log('🔔 Notification permission:', permission);
+    });
+
+    // Listen for notification clicks to select user
+    const handleNotificationSelection = (event: any) => {
+      const { userId, roomId, userName } = event.detail;
+      console.log('🔔 Notification clicked, selecting user:', userName);
+      
+      // Find the session and select it
+      const session = sessionsRef.current.find(s => s.userId === userId || s.roomId === roomId);
+      if (session) {
+        setSelectedSession(session);
+      }
+    };
+
+    window.addEventListener('selectUserFromNotification', handleNotificationSelection);
+
+    // Check if there's a pending selection from sessionStorage
+    const pendingUserId = sessionStorage.getItem('selectUserId');
+    const pendingRoomId = sessionStorage.getItem('selectRoomId');
+    
+    if (pendingUserId && pendingRoomId) {
+      sessionStorage.removeItem('selectUserId');
+      sessionStorage.removeItem('selectRoomId');
+      
+      // Delay selection to ensure sessions are loaded
+      setTimeout(() => {
+        const session = sessionsRef.current.find(
+          s => s.userId === pendingUserId || s.roomId === pendingRoomId
+        );
+        if (session) {
+          setSelectedSession(session);
+        }
+      }, 500);
+    }
+
     // Decode token to see what's inside (for debugging)
     try {
       const tokenParts = token.split('.');
@@ -193,6 +236,15 @@ export default function DashboardPage() {
     // Listen for users requesting agent connection
     socket.on('agent_connection_request', (data) => {
       console.log('Agent connection requested:', data);
+      
+      // Show browser notification
+      showUserConnectionNotification({
+        userId: data.userId,
+        userName: data.userName || 'User',
+        roomId: data.roomId || `user_${data.userId}`,
+        message: 'Requested agent connection'
+      });
+      
       // Add or update session
       setSessions((prev) => {
         const existing = prev.find((s) => s.userId === data.userId);
@@ -285,6 +337,18 @@ export default function DashboardPage() {
         userName: selectedSessionRef.current?.userName
       });
       console.log('🔍 Room match:', data.roomId === selectedSessionRef.current?.roomId);
+      
+      // Show notification if not currently viewing this chat
+      if (!selectedSessionRef.current || data.roomId !== selectedSessionRef.current.roomId) {
+        const notificationMessage = data.message || (data.attachments?.length ? 
+          `Sent ${data.attachments.length} attachment(s)` : 'New message');
+        showNewMessageNotification(
+          data.userName || 'User',
+          notificationMessage,
+          data.userId,
+          data.roomId
+        );
+      }
       
       // Add to messages if this is the selected session
       if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
@@ -425,6 +489,7 @@ export default function DashboardPage() {
     });
 
     return () => {
+      window.removeEventListener('selectUserFromNotification', handleNotificationSelection as any);
       disconnectSocket();
     };
   }, [router]); // Removed selectedSession from dependencies
