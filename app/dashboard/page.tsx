@@ -19,7 +19,9 @@ interface ChatSession {
   agentMode: boolean;
 }
 
-// URL detection regex - improved to catch all URL patterns
+
+
+// URL detection regex - improved to catch all URL pattern
 const URL_REGEX = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(\b[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/gi;
 
 // Parse text and convert URLs to clickable links
