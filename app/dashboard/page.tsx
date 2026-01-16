@@ -157,6 +157,30 @@ export default function DashboardPage() {
       return;
     }
 
+    // Register Service Worker for notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('✅ Service Worker registered:', registration);
+        })
+        .catch(error => {
+          console.warn('⚠️ Service Worker registration failed:', error);
+        });
+      
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'SELECT_USER') {
+          const { userId, roomId, userName } = event.data;
+          console.log('📨 Message from SW: Select user', userName);
+          
+          const session = sessionsRef.current.find(s => s.userId === userId || s.roomId === roomId);
+          if (session) {
+            setSelectedSession(session);
+          }
+        }
+      });
+    }
+
     // Request notification permission
     requestNotificationPermission().then(permission => {
       console.log('🔔 Notification permission:', permission);
