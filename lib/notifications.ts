@@ -76,8 +76,8 @@ export const showUserConnectionNotification = async (options: NotificationOption
         requireInteraction: true,
         silent: false,
         data: { userId, roomId, userName },
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
+        icon: '/notification-icon.png',
+        badge: '/notification-icon.png',
       });
 
       console.log('✅ Service Worker notification created successfully');
@@ -94,6 +94,7 @@ export const showUserConnectionNotification = async (options: NotificationOption
       requireInteraction: true,
       silent: false,
       tag,
+      icon: '/notification-icon.png',
     });
 
     console.log('✅ Direct notification created successfully');
@@ -165,8 +166,8 @@ export const showNewMessageNotification = async (
         requireInteraction: false,
         silent: false,
         data: { userId, roomId, userName },
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
+        icon: '/notification-icon.png',
+        badge: '/notification-icon.png',
       });
 
       console.log('✅ Service Worker message notification created successfully');
@@ -183,6 +184,7 @@ export const showNewMessageNotification = async (
       tag,
       requireInteraction: false,
       silent: false,
+      icon: '/notification-icon.png',
     });
 
     console.log('✅ Message notification created successfully');

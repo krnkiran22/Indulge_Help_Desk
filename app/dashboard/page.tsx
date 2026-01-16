@@ -709,45 +709,12 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-yellow-500">Indulge Help Desk</h1>
           <p className="text-sm text-zinc-400">Admin: {adminName}</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              console.log('🧪 Testing notification...');
-              checkNotificationSupport();
-              console.log('🧪 Permission:', Notification.permission);
-              const result = showUserConnectionNotification({
-                userId: 'test-user',
-                userName: 'Test User',
-                roomId: 'test-room',
-                message: 'This is a test notification'
-              });
-              console.log('🧪 Notification result:', result);
-              
-              // Also try a basic browser notification
-              setTimeout(() => {
-                console.log('🧪 Trying basic Notification API directly...');
-                try {
-                  const basic = new Notification('Direct Test', {
-                    body: 'Testing basic notification',
-                    requireInteraction: true
-                  });
-                  console.log('✅ Basic notification created:', basic);
-                } catch (e) {
-                  console.error('❌ Basic notification failed:', e);
-                }
-              }, 1000);
-            }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm"
-          >
-            Test Notification
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-          >
-            Logout
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+        >
+          Logout
+        </button>
       </header>
 
       {/* Main Content */}
