@@ -1,5 +1,19 @@
 // Browser Notification Utility for Help Desk
 
+export const checkNotificationSupport = () => {
+  const supported = 'Notification' in window;
+  const permission = supported ? Notification.permission : 'unsupported';
+  
+  console.log('🔔 Notification Support Check:');
+  console.log('  - Supported:', supported);
+  console.log('  - Permission:', permission);
+  console.log('  - Browser:', navigator.userAgent);
+  console.log('  - Protocol:', window.location.protocol);
+  console.log('  - Is Secure Context:', window.isSecureContext);
+  
+  return { supported, permission };
+};
+
 export const requestNotificationPermission = async (): Promise<NotificationPermission> => {
   if (!('Notification' in window)) {
     console.warn('This browser does not support notifications');
@@ -30,9 +44,17 @@ export const showUserConnectionNotification = (options: NotificationOptions) => 
 
   console.log('🔔 Attempting to show notification for:', userName);
   console.log('🔔 Notification permission:', Notification.permission);
+  console.log('🔔 Browser:', navigator.userAgent);
+
+  if (!('Notification' in window)) {
+    console.error('❌ This browser does not support notifications');
+    alert('Browser notifications not supported');
+    return null;
+  }
 
   if (Notification.permission !== 'granted') {
     console.warn('❌ Notification permission not granted:', Notification.permission);
+    alert('Please allow notifications in your browser settings');
     return null;
   }
 
@@ -42,25 +64,26 @@ export const showUserConnectionNotification = (options: NotificationOptions) => 
   console.log('✅ Creating notification:', { title, body });
 
   try {
+    // Try creating a very basic notification first
     const notification = new Notification(title, {
       body,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      tag: `user-${userId}`,
-      requireInteraction: true, // Keep notification visible until user interacts
+      requireInteraction: true,
       silent: false,
-      data: {
-        userId,
-        roomId,
-        userName,
-      },
+      tag: `user-${userId}`,
     });
 
     console.log('✅ Notification created successfully');
+    console.log('✅ Notification object:', notification);
 
-  // Handle notification click - redirect to user's chat
-  notification.onclick = (event) => {
-    event.preventDefault();
+    // Add show event listener
+    notification.onshow = () => {
+      console.log('✅ Notification is now visible to user');
+    };
+
+    // Handle notification click - redirect to user's chat
+    notification.onclick = (event) => {
+      console.log('🖱️ Notification clicked');
+      event.preventDefault();
     
     // Focus the window
     window.focus();
@@ -80,11 +103,17 @@ export const showUserConnectionNotification = (options: NotificationOptions) => 
 
   notification.onerror = (error) => {
     console.error('❌ Notification error:', error);
+    alert('Notification error: ' + JSON.stringify(error));
+  };
+
+  notification.onclose = () => {
+    console.log('🔕 Notification closed');
   };
 
   return notification;
   } catch (error) {
     console.error('❌ Failed to create notification:', error);
+    alert('Failed to create notification: ' + (error as Error).message);
     return null;
   }
 };

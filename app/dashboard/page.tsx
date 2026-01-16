@@ -6,7 +6,8 @@ import { initializeSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import { 
   requestNotificationPermission, 
   showUserConnectionNotification,
-  showNewMessageNotification 
+  showNewMessageNotification,
+  checkNotificationSupport
 } from '@/lib/notifications';
 
 interface ChatSession {
@@ -688,13 +689,29 @@ export default function DashboardPage() {
           <button
             onClick={() => {
               console.log('🧪 Testing notification...');
+              checkNotificationSupport();
               console.log('🧪 Permission:', Notification.permission);
-              showUserConnectionNotification({
+              const result = showUserConnectionNotification({
                 userId: 'test-user',
                 userName: 'Test User',
                 roomId: 'test-room',
                 message: 'This is a test notification'
               });
+              console.log('🧪 Notification result:', result);
+              
+              // Also try a basic browser notification
+              setTimeout(() => {
+                console.log('🧪 Trying basic Notification API directly...');
+                try {
+                  const basic = new Notification('Direct Test', {
+                    body: 'Testing basic notification',
+                    requireInteraction: true
+                  });
+                  console.log('✅ Basic notification created:', basic);
+                } catch (e) {
+                  console.error('❌ Basic notification failed:', e);
+                }
+              }, 1000);
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm"
           >
