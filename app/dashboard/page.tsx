@@ -132,6 +132,7 @@ export default function DashboardPage() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
   const sessionsRef = useRef<ChatSession[]>([]);
@@ -529,6 +530,7 @@ export default function DashboardPage() {
       agentMode: session.agentMode
     });
     setSelectedSession(session);
+    setIsMobileMenuOpen(false); // Close mobile menu when session is selected
     const socket = getSocket();
     if (socket) {
       console.log('📤 Admin joining room:', session.roomId);
@@ -704,23 +706,56 @@ export default function DashboardPage() {
   return (
     <div className="h-screen flex flex-col bg-black text-white">
       {/* Header */}
-      <header className="bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-yellow-500">Indulge Help Desk</h1>
-          <p className="text-sm text-zinc-400">Admin: {adminName}</p>
+      <header className="bg-zinc-950 border-b border-zinc-800 px-4 md:px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="lg:hidden p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isMobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-yellow-500">Indulge Help Desk</h1>
+            <p className="text-xs md:text-sm text-zinc-400">Admin: {adminName}</p>
+          </div>
         </div>
         <button
           onClick={handleLogout}
-          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          className="px-3 md:px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
         >
           Logout
         </button>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sessions List */}
-        <div className="w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Sessions List - Mobile Drawer + Desktop Sidebar */}
+        <div className={`
+          fixed lg:relative inset-y-0 left-0 z-50
+          w-80 lg:w-80 
+          bg-zinc-950 border-r border-zinc-800 
+          flex flex-col
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
+          {/* Mobile Overlay Close Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="lg:hidden absolute top-4 right-4 p-2 hover:bg-zinc-800 rounded-lg transition-colors z-10"
+            aria-label="Close menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
           {/* Filter Tabs */}
           <div className="p-4 border-b border-zinc-800">
             <div className="flex gap-2 mb-3">
@@ -807,18 +842,40 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Mobile Overlay */}
+        {isMobileMenuOpen && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
         {/* Chat Area */}
         <div className="flex-1 flex flex-col">
           {selectedSession ? (
             <>
               {/* Chat Header */}
-              <div className="bg-zinc-950 border-b border-zinc-800 px-6 py-4">
-                <h2 className="text-lg font-semibold">{selectedSession.userName}</h2>
-                <p className="text-sm text-zinc-400">{selectedSession.roomId}</p>
+              <div className="bg-zinc-950 border-b border-zinc-800 px-4 md:px-6 py-4">
+                <div className="flex items-center gap-3">
+                  {/* Mobile Back Button */}
+                  <button
+                    onClick={() => setSelectedSession(null)}
+                    className="lg:hidden p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                    aria-label="Back to chats"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg font-semibold truncate">{selectedSession.userName}</h2>
+                    <p className="text-xs md:text-sm text-zinc-400 truncate">{selectedSession.roomId}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                 {messages.map((msg, idx) => {
                   // Debug log for each message
                   if (msg.attachments && msg.attachments.length > 0) {
@@ -990,7 +1047,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Message Input */}
-              <div className="bg-zinc-950 border-t border-zinc-800 p-4">
+              <div className="bg-zinc-950 border-t border-zinc-800 p-3 md:p-4">
                 <div className="flex gap-2">
                   <input
                     type="file"
@@ -1001,7 +1058,7 @@ export default function DashboardPage() {
                   />
                   <label
                     htmlFor="file-upload"
-                    className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                    className="px-3 md:px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center text-lg md:text-xl"
                     title="Attach Image or PDF"
                   >
                     📎
@@ -1011,7 +1068,7 @@ export default function DashboardPage() {
                     onChange={(e) => setMessageInput(e.target.value)}
                     placeholder="Type your message..."
                     rows={1}
-                    className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
+                    className="flex-1 px-3 md:px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none text-sm md:text-base"
                     style={{ minHeight: '48px', maxHeight: '200px' }}
                     onInput={(e) => {
                       const target = e.target as HTMLTextAreaElement;
@@ -1026,7 +1083,7 @@ export default function DashboardPage() {
                       handleSendMessage(e);
                     }}
                     disabled={!messageInput.trim()}
-                    className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black font-semibold rounded-lg transition-colors"
+                    className="px-4 md:px-6 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black font-semibold rounded-lg transition-colors text-sm md:text-base"
                   >
                     Send
                   </button>
@@ -1088,10 +1145,10 @@ export default function DashboardPage() {
               )}
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-zinc-500">
-              <div className="text-center">
+            <div className="hidden lg:flex flex-1 items-center justify-center text-zinc-500">
+              <div className="text-center px-4">
                 <svg
-                  className="w-16 h-16 mx-auto mb-4 opacity-50"
+                  className="w-12 md:w-16 h-12 md:h-16 mx-auto mb-4 opacity-50"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1103,7 +1160,7 @@ export default function DashboardPage() {
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <p className="text-lg">Select a conversation to start chatting</p>
+                <p className="text-base md:text-lg">Select a conversation to start chatting</p>
               </div>
             </div>
           )}
