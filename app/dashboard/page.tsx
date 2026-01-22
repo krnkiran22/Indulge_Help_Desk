@@ -532,6 +532,7 @@ export default function DashboardPage() {
       agentMode: session.agentMode
     });
     setSelectedSession(session);
+    setMessages([]); // Clear messages immediately when switching chats
     setIsMobileMenuOpen(false); // Close mobile menu when session is selected
     const socket = getSocket();
     if (socket) {
