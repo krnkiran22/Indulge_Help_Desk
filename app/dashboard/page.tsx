@@ -9,6 +9,7 @@ import {
   showNewMessageNotification,
   checkNotificationSupport
 } from '@/lib/notifications';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 interface ChatSession {
   userId: string;
@@ -133,6 +134,7 @@ export default function DashboardPage() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
   const sessionsRef = useRef<ChatSession[]>([]);
@@ -616,15 +618,16 @@ export default function DashboardPage() {
     if (!file) return;
 
     // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'application/pdf'];
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'application/pdf', 'video/mp4', 'video/quicktime', 'video/webm'];
     if (!validTypes.includes(file.type)) {
-      alert('Please select a valid image (JPEG, PNG, GIF) or PDF file');
+      alert('Please select a valid image (JPEG, PNG, GIF), PDF, or video file (MP4, MOV, WebM)');
       return;
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+    // Validate file size (max 100MB for videos, 10MB for others)
+    const maxSize = file.type.startsWith('video/') ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert(`File size must be less than ${file.type.startsWith('video/') ? '100MB' : '10MB'}`);
       return;
     }
 
@@ -663,8 +666,17 @@ export default function DashboardPage() {
         const base64Data = (reader.result as string).split(',')[1];
         const dataUri = `data:${selectedFile.type};base64,${base64Data}`;
         
+        let fileType = 'file';
+        if (selectedFile.type.startsWith('image/')) {
+          fileType = 'image';
+        } else if (selectedFile.type === 'application/pdf') {
+          fileType = 'pdf';
+        } else if (selectedFile.type.startsWith('video/')) {
+          fileType = 'video';
+        }
+        
         const attachment = {
-          type: selectedFile.type.startsWith('image/') ? 'image' : 'pdf',
+          type: fileType,
           filename: selectedFile.name,
           mimeType: selectedFile.type,
           size: selectedFile.size,
@@ -694,6 +706,24 @@ export default function DashboardPage() {
     disconnectSocket();
     router.push('/login');
   };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setMessageInput(prev => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showEmojiPicker && !target.closest('.emoji-picker-container')) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   if (loading) {
     return (
@@ -981,6 +1011,33 @@ export default function DashboardPage() {
                                 />
                               );
                             }
+                            if (attachment.type === 'video') {
+                              // Construct video URL from base64 or URL
+                              const videoUrl = attachment.url || (attachment.base64Data 
+                                ? `data:${attachment.mimeType || 'video/mp4'};base64,${attachment.base64Data}`
+                                : null);
+                              
+                              if (!videoUrl) {
+                                return (
+                                  <div key={attIdx} className="p-4 bg-zinc-800/50 rounded-lg text-zinc-400 text-sm">
+                                    🎥 Video unavailable: {attachment.filename || 'Unknown'}
+                                  </div>
+                                );
+                              }
+                              
+                              return (
+                                <div key={attIdx} className="rounded-lg overflow-hidden bg-black" style={{ maxWidth: '400px' }}>
+                                  <video
+                                    controls
+                                    className="w-full h-auto"
+                                    style={{ maxHeight: '300px' }}
+                                  >
+                                    <source src={videoUrl} type={attachment.mimeType || 'video/mp4'} />
+                                    Your browser does not support the video tag.
+                                  </video>
+                                </div>
+                              );
+                            }
                             if (attachment.type === 'pdf') {
                               // Construct PDF URL from base64 if URL is not present
                               const pdfUrl = attachment.url || (attachment.base64Data 
@@ -1052,17 +1109,42 @@ export default function DashboardPage() {
                   <input
                     type="file"
                     id="file-upload"
-                    accept="image/*,application/pdf"
+                    accept="image/*,application/pdf,video/*"
                     onChange={handleFileSelect}
                     className="hidden"
                   />
                   <label
                     htmlFor="file-upload"
                     className="px-3 md:px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center text-lg md:text-xl"
-                    title="Attach Image or PDF"
+                    title="Attach Image, PDF or Video"
                   >
                     📎
                   </label>
+                  
+                  {/* Emoji Picker Button */}
+                  <div className="relative emoji-picker-container">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="px-3 md:px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors flex items-center justify-center text-lg md:text-xl"
+                      title="Add Emoji"
+                    >
+                      😊
+                    </button>
+                    
+                    {/* Emoji Picker Dropdown */}
+                    {showEmojiPicker && (
+                      <div className="absolute bottom-full right-0 mb-2 z-50">
+                        <EmojiPicker
+                          onEmojiClick={handleEmojiClick}
+                          theme="dark"
+                          width={320}
+                          height={400}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
@@ -1095,15 +1177,27 @@ export default function DashboardPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowFileModal(false)}>
                   <div className="bg-zinc-900 rounded-lg p-6 w-96 max-w-[90%]" onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4 text-yellow-500">
-                      {selectedFile.type.startsWith('image/') ? 'Send Image' : 'Send PDF'}
+                      {selectedFile.type.startsWith('image/') 
+                        ? 'Send Image' 
+                        : selectedFile.type.startsWith('video/')
+                        ? 'Send Video'
+                        : 'Send PDF'}
                     </h3>
                     
                     {/* File Preview */}
-                    {filePreview ? (
+                    {filePreview && selectedFile.type.startsWith('image/') ? (
                       <img src={filePreview} alt="Preview" className="w-full max-h-64 object-contain mb-4 rounded-lg bg-zinc-800" />
+                    ) : selectedFile.type.startsWith('video/') ? (
+                      <video 
+                        src={filePreview || URL.createObjectURL(selectedFile)} 
+                        controls 
+                        className="w-full max-h-64 mb-4 rounded-lg bg-black"
+                      />
                     ) : (
                       <div className="w-full p-8 mb-4 rounded-lg bg-zinc-800 flex flex-col items-center justify-center">
-                        <span className="text-6xl mb-2">📑</span>
+                        <span className="text-6xl mb-2">
+                          {selectedFile.type.startsWith('video/') ? '🎥' : '📑'}
+                        </span>
                         <p className="text-sm text-zinc-400">{selectedFile.name}</p>
                         <p className="text-xs text-zinc-500 mt-1">
                           {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
