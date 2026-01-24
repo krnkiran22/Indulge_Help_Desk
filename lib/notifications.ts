@@ -79,7 +79,6 @@ export const showUserConnectionNotification = async (options: NotificationOption
         tag,
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
-        vibrate: [200, 100, 200],
       });
 
       console.log('✅ Direct Mac notification created successfully');
@@ -138,7 +137,6 @@ export const showUserConnectionNotification = async (options: NotificationOption
         data: { userId, roomId, userName },
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
-        vibrate: [200, 100, 200],
       });
 
       console.log('✅ Service Worker notification created successfully');
@@ -226,7 +224,6 @@ export const showNewMessageNotification = async (
         requireInteraction: false,
         silent: false,
         icon: '/notification-icon.png',
-        vibrate: [200, 100, 200],
       });
 
       console.log('✅ Mac message notification created successfully');
@@ -280,7 +277,6 @@ export const showNewMessageNotification = async (
         data: { userId, roomId, userName },
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
-        vibrate: [200, 100, 200],
       });
 
       console.log('✅ Service Worker message notification created successfully');
