@@ -9,7 +9,7 @@ import {
   showNewMessageNotification,
   checkNotificationSupport
 } from '@/lib/notifications';
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
 interface ChatSession {
   userId: string;
@@ -275,28 +275,38 @@ export default function DashboardPage() {
         message: 'Requested agent connection'
       });
       
-      // Add or update session
+      // Add or update session and sort by timestamp
       setSessions((prev) => {
         const existing = prev.find((s) => s.userId === data.userId);
+        let updatedSessions;
+        
         if (existing) {
-          return prev.map((s) =>
+          // Update existing session with new timestamp
+          updatedSessions = prev.map((s) =>
             s.userId === data.userId
-              ? { ...s, agentMode: true, unread: s.unread + 1 }
+              ? { ...s, agentMode: true, unread: s.unread + 1, timestamp: new Date() }
               : s
           );
+        } else {
+          // Add new session
+          updatedSessions = [
+            ...prev,
+            {
+              userId: data.userId,
+              userName: data.userName || 'User',
+              roomId: data.roomId || `user_${data.userId}`,
+              lastMessage: 'Requested agent connection',
+              timestamp: new Date(),
+              unread: 1,
+              agentMode: true,
+            },
+          ];
         }
-        return [
-          ...prev,
-          {
-            userId: data.userId,
-            userName: data.userName || 'User',
-            roomId: data.roomId || `user_${data.userId}`,
-            lastMessage: 'Requested agent connection',
-            timestamp: new Date(),
-            unread: 1,
-            agentMode: true,
-          },
-        ];
+        
+        // Sort by timestamp descending (newest first)
+        return updatedSessions.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
       });
     });
 
@@ -425,9 +435,9 @@ export default function DashboardPage() {
         console.log('⚠️ Not adding - room mismatch or no session selected');
       }
       
-      // Update session list with user's message
-      setSessions((prev) =>
-        prev.map((s) => {
+      // Update session list with user's message and sort by timestamp
+      setSessions((prev) => {
+        const updatedSessions = prev.map((s) => {
           if (s.roomId === data.roomId) {
             // Show attachment indicator if message is empty
             let displayMessage = data.message || '';
@@ -443,8 +453,13 @@ export default function DashboardPage() {
             };
           }
           return s;
-        })
-      );
+        });
+        
+        // Sort by timestamp descending (newest first)
+        return updatedSessions.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+      });
     });
 
     // Listen for AI responses (so admin can see AI replies in real-time)
@@ -1138,7 +1153,7 @@ export default function DashboardPage() {
                       <div className="absolute bottom-full right-0 mb-2 z-50">
                         <EmojiPicker
                           onEmojiClick={handleEmojiClick}
-                          theme="dark"
+                          theme={Theme.DARK}
                           width={320}
                           height={400}
                         />

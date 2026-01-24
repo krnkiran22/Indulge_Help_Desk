@@ -45,17 +45,21 @@ export const showUserConnectionNotification = async (options: NotificationOption
   console.log('🔔 Attempting to show notification for:', userName);
   console.log('🔔 Notification permission:', Notification.permission);
   console.log('🔔 Browser:', navigator.userAgent);
+  console.log('🔔 Platform:', navigator.platform);
 
   if (!('Notification' in window)) {
     console.error('❌ This browser does not support notifications');
-    alert('Browser notifications not supported');
     return null;
   }
 
   if (Notification.permission !== 'granted') {
     console.warn('❌ Notification permission not granted:', Notification.permission);
-    alert('Please allow notifications in your browser settings');
-    return null;
+    // Try to request permission again
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.error('❌ Notification permission denied');
+      return null;
+    }
   }
 
   const title = `${userName} needs assistance`;
@@ -64,7 +68,63 @@ export const showUserConnectionNotification = async (options: NotificationOption
 
   console.log('✅ Creating notification:', { title, body });
 
-  // Try Service Worker API first (required for mobile Chrome)
+  // For Mac desktop, try direct API first (more reliable than Service Worker)
+  if (navigator.platform.includes('Mac')) {
+    console.log('🍎 Mac detected - using direct Notification API');
+    try {
+      const notification = new Notification(title, {
+        body,
+        requireInteraction: true,
+        silent: false,
+        tag,
+        icon: '/notification-icon.png',
+        badge: '/notification-icon.png',
+        vibrate: [200, 100, 200],
+      });
+
+      console.log('✅ Direct Mac notification created successfully');
+
+      notification.onshow = () => {
+        console.log('✅ Notification is now visible to user');
+        // Play a sound for Mac
+        try {
+          const audio = new Audio('/notification-sound.mp3');
+          audio.play().catch(e => console.log('Could not play sound:', e));
+        } catch (e) {
+          console.log('Audio not supported');
+        }
+      };
+
+      notification.onclick = (event) => {
+        console.log('🖱️ Notification clicked');
+        event.preventDefault();
+        window.focus();
+        
+        sessionStorage.setItem('selectUserId', userId);
+        sessionStorage.setItem('selectRoomId', roomId);
+        
+        window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
+          detail: { userId, roomId, userName }
+        }));
+        
+        notification.close();
+      };
+
+      notification.onerror = (error) => {
+        console.error('❌ Notification error:', error);
+      };
+
+      notification.onclose = () => {
+        console.log('🔕 Notification closed');
+      };
+
+      return notification;
+    } catch (error) {
+      console.error('❌ Failed to create Mac notification:', error);
+    }
+  }
+
+  // Try Service Worker API for other platforms
   if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -78,6 +138,7 @@ export const showUserConnectionNotification = async (options: NotificationOption
         data: { userId, roomId, userName },
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
+        vibrate: [200, 100, 200],
       });
 
       console.log('✅ Service Worker notification created successfully');
@@ -142,6 +203,7 @@ export const showNewMessageNotification = async (
 ) => {
   console.log('🔔 Attempting to show message notification from:', userName);
   console.log('🔔 Notification permission:', Notification.permission);
+  console.log('🔔 Platform:', navigator.platform);
 
   if (Notification.permission !== 'granted') {
     console.warn('❌ Notification permission not granted');
@@ -153,6 +215,56 @@ export const showNewMessageNotification = async (
   const tag = `message-${userId}`;
 
   console.log('✅ Creating message notification:', { title, body });
+
+  // For Mac desktop, try direct API first (more reliable)
+  if (navigator.platform.includes('Mac')) {
+    console.log('🍎 Mac detected - using direct Notification API for message');
+    try {
+      const notification = new Notification(title, {
+        body,
+        tag,
+        requireInteraction: false,
+        silent: false,
+        icon: '/notification-icon.png',
+        vibrate: [200, 100, 200],
+      });
+
+      console.log('✅ Mac message notification created successfully');
+
+      notification.onshow = () => {
+        console.log('✅ Message notification visible');
+        // Play a sound
+        try {
+          const audio = new Audio('/notification-sound.mp3');
+          audio.play().catch(e => console.log('Could not play sound:', e));
+        } catch (e) {
+          console.log('Audio not supported');
+        }
+      };
+
+      notification.onclick = (event) => {
+        event.preventDefault();
+        window.focus();
+        
+        sessionStorage.setItem('selectUserId', userId);
+        sessionStorage.setItem('selectRoomId', roomId);
+        
+        window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
+          detail: { userId, roomId, userName }
+        }));
+        
+        notification.close();
+      };
+
+      notification.onerror = (error) => {
+        console.error('❌ Message notification error:', error);
+      };
+
+      return notification;
+    } catch (error) {
+      console.error('❌ Failed to create Mac message notification:', error);
+    }
+  }
 
   // Try Service Worker API first (required for mobile Chrome)
   if ('serviceWorker' in navigator) {
@@ -168,6 +280,7 @@ export const showNewMessageNotification = async (
         data: { userId, roomId, userName },
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
+        vibrate: [200, 100, 200],
       });
 
       console.log('✅ Service Worker message notification created successfully');
