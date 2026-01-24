@@ -138,6 +138,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
   const sessionsRef = useRef<ChatSession[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -147,6 +153,20 @@ export default function DashboardPage() {
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages]);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -1117,6 +1137,8 @@ export default function DashboardPage() {
                     </div>
                   );
                 })}
+                {/* Scroll target */}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input */}
