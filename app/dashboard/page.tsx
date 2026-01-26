@@ -180,6 +180,8 @@ export default function DashboardPage() {
       return;
     }
 
+
+    
     // Register Service Worker for notifications
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
