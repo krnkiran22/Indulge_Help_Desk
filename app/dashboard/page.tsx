@@ -181,7 +181,7 @@ export default function DashboardPage() {
     }
 
 
-    
+
     // Register Service Worker for notifications
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
@@ -400,17 +400,15 @@ export default function DashboardPage() {
       });
       console.log('🔍 Room match:', data.roomId === selectedSessionRef.current?.roomId);
       
-      // Show notification if not currently viewing this chat
-      if (!selectedSessionRef.current || data.roomId !== selectedSessionRef.current.roomId) {
-        const notificationMessage = data.message || (data.attachments?.length ? 
-          `Sent ${data.attachments.length} attachment(s)` : 'New message');
-        showNewMessageNotification(
-          data.userName || 'User',
-          notificationMessage,
-          data.userId,
-          data.roomId
-        );
-      }
+      // Show notification for EVERY user message (even if currently viewing the chat)
+      const notificationMessage = data.message || (data.attachments?.length ? 
+        `Sent ${data.attachments.length} attachment(s)` : 'New message');
+      showNewMessageNotification(
+        data.userName || 'User',
+        notificationMessage,
+        data.userId,
+        data.roomId
+      );
       
       // Add to messages if this is the selected session
       if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
