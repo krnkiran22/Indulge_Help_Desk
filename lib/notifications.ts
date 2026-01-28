@@ -202,6 +202,12 @@ export const showNewMessageNotification = async (
   console.log('🔔 Attempting to show message notification from:', userName);
   console.log('🔔 Notification permission:', Notification.permission);
   console.log('🔔 Platform:', navigator.platform);
+  console.log('🔔 User Agent:', navigator.userAgent);
+
+  if (!('Notification' in window)) {
+    console.error('❌ This browser does not support notifications');
+    return null;
+  }
 
   if (Notification.permission !== 'granted') {
     console.warn('❌ Notification permission not granted');
@@ -210,60 +216,56 @@ export const showNewMessageNotification = async (
 
   const title = `New message from ${userName}`;
   const body = message.length > 100 ? message.substring(0, 100) + '...' : message;
-  const tag = `message-${userId}`;
+  const tag = `message-${userId}-${Date.now()}`; // Unique tag to prevent grouping
 
-  console.log('✅ Creating message notification:', { title, body });
+  console.log('✅ Creating message notification:', { title, body, tag });
 
-  // For Mac desktop, try direct API first (more reliable)
-  if (navigator.platform.includes('Mac')) {
-    console.log('🍎 Mac detected - using direct Notification API for message');
-    try {
-      const notification = new Notification(title, {
-        body,
-        tag,
-        requireInteraction: false,
-        silent: false,
-        icon: '/notification-icon.png',
-      });
+  // Try direct Notification API first for ALL desktop browsers
+  try {
+    const notification = new Notification(title, {
+      body,
+      tag,
+      requireInteraction: false,
+      silent: false,
+      icon: '/notification-icon.png',
+      badge: '/notification-icon.png',
+    });
 
-      console.log('✅ Mac message notification created successfully');
+    console.log('✅ Desktop notification created successfully');
 
-      notification.onshow = () => {
-        console.log('✅ Message notification visible');
-        // Play a sound
-        try {
-          const audio = new Audio('/notification-sound.mp3');
-          audio.play().catch(e => console.log('Could not play sound:', e));
-        } catch (e) {
-          console.log('Audio not supported');
-        }
-      };
+    notification.onshow = () => {
+      console.log('✅ Message notification visible on desktop');
+    };
 
-      notification.onclick = (event) => {
-        event.preventDefault();
-        window.focus();
-        
-        sessionStorage.setItem('selectUserId', userId);
-        sessionStorage.setItem('selectRoomId', roomId);
-        
-        window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
-          detail: { userId, roomId, userName }
-        }));
-        
-        notification.close();
-      };
+    notification.onclick = (event) => {
+      console.log('🖱️ Desktop notification clicked');
+      event.preventDefault();
+      window.focus();
+      
+      sessionStorage.setItem('selectUserId', userId);
+      sessionStorage.setItem('selectRoomId', roomId);
+      
+      window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
+        detail: { userId, roomId, userName }
+      }));
+      
+      notification.close();
+    };
 
-      notification.onerror = (error) => {
-        console.error('❌ Message notification error:', error);
-      };
+    notification.onerror = (error) => {
+      console.error('❌ Desktop notification error:', error);
+    };
 
-      return notification;
-    } catch (error) {
-      console.error('❌ Failed to create Mac message notification:', error);
-    }
+    notification.onclose = () => {
+      console.log('🔕 Desktop notification closed');
+    };
+
+    return notification;
+  } catch (directError) {
+    console.error('❌ Direct Notification API failed:', directError);
   }
 
-  // Try Service Worker API first (required for mobile Chrome)
+  // Fallback to Service Worker API for mobile browsers
   if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -282,43 +284,10 @@ export const showNewMessageNotification = async (
       console.log('✅ Service Worker message notification created successfully');
       return true;
     } catch (swError) {
-      console.warn('⚠️ Service Worker notification failed, trying direct API:', swError);
+      console.warn('⚠️ Service Worker notification failed:', swError);
     }
   }
 
-  // Fallback to direct Notification API
-  try {
-    const notification = new Notification(title, {
-      body,
-      tag,
-      requireInteraction: false,
-      silent: false,
-      icon: '/notification-icon.png',
-    });
-
-    console.log('✅ Message notification created successfully');
-
-    notification.onclick = (event) => {
-      event.preventDefault();
-      window.focus();
-      
-      sessionStorage.setItem('selectUserId', userId);
-      sessionStorage.setItem('selectRoomId', roomId);
-      
-      window.dispatchEvent(new CustomEvent('selectUserFromNotification', {
-        detail: { userId, roomId, userName }
-      }));
-      
-      notification.close();
-    };
-
-    notification.onerror = (error) => {
-      console.error('❌ Message notification error:', error);
-    };
-
-    return notification;
-  } catch (error) {
-    console.error('❌ Failed to create message notification:', error);
-    return null;
-  }
+  console.error('❌ All notification methods failed');
+  return null;
 };
