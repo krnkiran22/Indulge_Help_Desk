@@ -363,8 +363,11 @@ export default function DashboardPage() {
           attachments: msg.attachments || [],
           agentName: msg.metadata?.agentName
         }));
-        console.log('✅ Setting messages:', formattedMessages.length);
+        console.log('✅ Setting messages (REPLACING entire array):', formattedMessages.length);
         console.log('📋 Messages with attachments:', formattedMessages.filter((m: any) => m.attachments?.length > 0).length);
+        
+        // ALWAYS replace the entire array with history when received
+        // This ensures we have a clean slate when switching chats
         setMessages(formattedMessages);
       } else {
         console.log('⚠️ No messages or failed:', data);
@@ -417,19 +420,29 @@ export default function DashboardPage() {
           console.log('📎 Attachments:', data.attachments.map((a: any) => ({ type: a.type, filename: a.filename })));
         }
         
-        // Check for duplicates before adding
+        // Create new message object with unique ID
+        const newMessage = {
+          id: `user-${data.timestamp}-${data.userId}-${Date.now()}`,
+          message: data.message || '',
+          role: 'user',
+          timestamp: data.timestamp,
+          attachments: data.attachments || [],
+          userName: data.userName
+        };
+        
+        // Check for duplicates before adding - use functional update for safety
         setMessages((prev) => {
-          // Check if message already exists by ID or by content+timestamp+attachments
+          // Check if message already exists by content+timestamp+attachments
           const isDuplicate = prev.some(msg => {
-            const sameContent = msg.message === data.message;
+            const sameContent = msg.message === newMessage.message;
             const sameRole = msg.role === 'user';
-            const sameTime = Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000;
-            const sameAttachmentCount = (msg.attachments?.length || 0) === (data.attachments?.length || 0);
+            const sameTime = Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 1500;
+            const sameAttachmentCount = (msg.attachments?.length || 0) === (newMessage.attachments?.length || 0);
             
             // For attachment-only messages, also check attachment filenames
-            if (!data.message || data.message.trim() === '') {
+            if (!newMessage.message || newMessage.message.trim() === '') {
               const sameAttachments = JSON.stringify(msg.attachments?.map((a: any) => a.filename).sort()) === 
-                                     JSON.stringify(data.attachments?.map((a: any) => a.filename).sort());
+                                     JSON.stringify(newMessage.attachments?.map((a: any) => a.filename).sort());
               return sameContent && sameRole && sameTime && sameAttachments;
             }
             
@@ -441,15 +454,9 @@ export default function DashboardPage() {
             return prev;
           }
           
-          // Add with unique ID
-          return [...prev, {
-            id: `user-${data.timestamp}-${data.userId}`,
-            message: data.message,
-            role: 'user',
-            timestamp: data.timestamp,
-            attachments: data.attachments || [],
-            userName: data.userName
-          }];
+          console.log('✨ Appending new user message to chat');
+          // Append new message to existing array (preserves all previous messages)
+          return [...prev, newMessage];
         });
       } else {
         console.log('⚠️ Not adding - room mismatch or no session selected');
@@ -501,12 +508,30 @@ export default function DashboardPage() {
           data.roomId === selectedSessionRef.current.roomId && 
           !selectedSessionRef.current.agentMode) {
         console.log('✅ Adding AI response to chat (AI mode)');
-        setMessages((prev) => [...prev, {
-          message: data.message,
-          role: 'assistant',
-          timestamp: data.timestamp,
-          attachments: []
-        }]);
+        
+        // Use functional update to avoid race conditions
+        setMessages((prev) => {
+          // Check for duplicate AI messages
+          const isDuplicate = prev.some(msg => 
+            msg.message === data.message && 
+            msg.role === 'assistant' &&
+            Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 1500
+          );
+          
+          if (isDuplicate) {
+            console.log('⚠️ Duplicate AI message detected, skipping');
+            return prev;
+          }
+          
+          console.log('✨ Appending AI message to chat');
+          return [...prev, {
+            id: `ai-${data.timestamp}-${Date.now()}`,
+            message: data.message,
+            role: 'assistant',
+            timestamp: data.timestamp,
+            attachments: []
+          }];
+        });
       }
       
       // Update session list with AI's response only if NOT in agent mode
@@ -522,27 +547,26 @@ export default function DashboardPage() {
     // Listen for agent message echo from server
     socket.on('agent_message', (data) => {
       console.log('👔 Agent message echo received:', data);
-      // Update the optimistic message with the server version (which has _id)
+      
+      // Use functional update for safety
       setMessages((prev) => {
         // Check if we already have this message (by timestamp + message content)
-        const exists = prev.some(msg => 
+        const existingIndex = prev.findIndex(msg => 
           msg.message === data.message && 
           msg.role === 'agent' &&
           Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
         );
         
-        if (exists) {
-          // Update the existing optimistic message with server data
-          return prev.map(msg => 
-            msg.message === data.message && 
-            msg.role === 'agent' &&
-            Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
-              ? { ...data, id: data._id || msg.id }
-              : msg
-          );
+        if (existingIndex !== -1) {
+          // Update the existing optimistic message with server data (which has _id)
+          console.log('✅ Updating optimistic message with server data');
+          const updated = [...prev];
+          updated[existingIndex] = { ...data, id: data._id || prev[existingIndex].id };
+          return updated;
         } else {
-          // New message from another admin
-          return [...prev, { ...data, id: data._id }];
+          // New message from another admin - append it
+          console.log('✨ Appending agent message from another admin');
+          return [...prev, { ...data, id: data._id || `agent-${data.timestamp}-${Date.now()}` }];
         }
       });
     });
