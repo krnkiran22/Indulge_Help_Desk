@@ -4,12 +4,12 @@ export const checkNotificationSupport = () => {
   const supported = 'Notification' in window;
   const permission = supported ? Notification.permission : 'unsupported';
   
-  console.log('🔔 Notification Support Check:');
-  console.log('  - Supported:', supported);
-  console.log('  - Permission:', permission);
-  console.log('  - Browser:', navigator.userAgent);
-  console.log('  - Protocol:', window.location.protocol);
-  console.log('  - Is Secure Context:', window.isSecureContext);
+  console.log('🔔 Notification Support Check:');         
+  console.log('  - Supported:', supported);         
+  console.log('  - Permission:', permission);         
+  console.log('  - Browser:', navigator.userAgent);         
+  console.log('  - Protocol:', window.location.protocol);         
+  console.log('  - Is Secure Context:', window.isSecureContext);         
   
   return { supported, permission };
 };

@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { initializeSocket, disconnectSocket, getSocket } from '@/lib/socket';
-import { 
-  requestNotificationPermission, 
+import {
+  requestNotificationPermission,
   showUserConnectionNotification,
   showNewMessageNotification,
   checkNotificationSupport
@@ -90,7 +90,7 @@ const formatDateSeparator = (date: Date): string => {
   yesterday.setDate(yesterday.getDate() - 1);
 
   const messageDate = new Date(date);
-  
+
   // Reset time to compare dates only
   today.setHours(0, 0, 0, 0);
   yesterday.setHours(0, 0, 0, 0);
@@ -102,10 +102,10 @@ const formatDateSeparator = (date: Date): string => {
     return 'Yesterday';
   } else {
     // Format as "Month Day, Year" (e.g., "January 9, 2026")
-    return messageDate.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return messageDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
     });
   }
 };
@@ -134,6 +134,7 @@ export default function DashboardPage() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const router = useRouter();
   const selectedSessionRef = useRef<ChatSession | null>(null);
@@ -191,13 +192,13 @@ export default function DashboardPage() {
         .catch(error => {
           console.warn('⚠️ Service Worker registration failed:', error);
         });
-      
+
       // Listen for messages from service worker
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data.type === 'SELECT_USER') {
           const { userId, roomId, userName } = event.data;
           console.log('📨 Message from SW: Select user', userName);
-          
+
           const session = sessionsRef.current.find(s => s.userId === userId || s.roomId === roomId);
           if (session) {
             setSelectedSession(session);
@@ -215,7 +216,7 @@ export default function DashboardPage() {
     const handleNotificationSelection = (event: any) => {
       const { userId, roomId, userName } = event.detail;
       console.log('🔔 Notification clicked, selecting user:', userName);
-      
+
       // Find the session and select it
       const session = sessionsRef.current.find(s => s.userId === userId || s.roomId === roomId);
       if (session) {
@@ -228,11 +229,11 @@ export default function DashboardPage() {
     // Check if there's a pending selection from sessionStorage
     const pendingUserId = sessionStorage.getItem('selectUserId');
     const pendingRoomId = sessionStorage.getItem('selectRoomId');
-    
+
     if (pendingUserId && pendingRoomId) {
       sessionStorage.removeItem('selectUserId');
       sessionStorage.removeItem('selectRoomId');
-      
+
       // Delay selection to ensure sessions are loaded
       setTimeout(() => {
         const session = sessionsRef.current.find(
@@ -288,7 +289,7 @@ export default function DashboardPage() {
     // Listen for users requesting agent connection
     socket.on('agent_connection_request', (data) => {
       console.log('Agent connection requested:', data);
-      
+
       // Show browser notification
       showUserConnectionNotification({
         userId: data.userId,
@@ -296,12 +297,12 @@ export default function DashboardPage() {
         roomId: data.roomId || `user_${data.userId}`,
         message: 'Requested agent connection'
       });
-      
+
       // Add or update session and sort by timestamp
       setSessions((prev) => {
         const existing = prev.find((s) => s.userId === data.userId);
         let updatedSessions;
-        
+
         if (existing) {
           // Update existing session with new timestamp
           updatedSessions = prev.map((s) =>
@@ -324,9 +325,9 @@ export default function DashboardPage() {
             },
           ];
         }
-        
+
         // Sort by timestamp descending (newest first)
-        return updatedSessions.sort((a, b) => 
+        return updatedSessions.sort((a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
       });
@@ -353,7 +354,7 @@ export default function DashboardPage() {
             });
           }
         });
-        
+
         // Map database messages to display format with unique IDs
         const formattedMessages = data.messages.map((msg: any) => ({
           id: msg._id || `${msg.role}-${msg.timestamp}-${msg.message.substring(0, 20)}`, // Add unique ID
@@ -365,7 +366,7 @@ export default function DashboardPage() {
         }));
         console.log('✅ Setting messages (REPLACING entire array):', formattedMessages.length);
         console.log('📋 Messages with attachments:', formattedMessages.filter((m: any) => m.attachments?.length > 0).length);
-        
+
         // ALWAYS replace the entire array with history when received
         // This ensures we have a clean slate when switching chats
         setMessages(formattedMessages);
@@ -382,11 +383,11 @@ export default function DashboardPage() {
       console.log('  Room:', data.roomId);
       console.log('  Attachments received:', data.attachments?.length || 0);
       if (data.attachments && data.attachments.length > 0) {
-        console.log('  Attachment details:', data.attachments.map((a: any) => ({ 
-          type: a.type, 
+        console.log('  Attachment details:', data.attachments.map((a: any) => ({
+          type: a.type,
           filename: a.filename,
           hasBase64: !!a.base64Data,
-          hasUrl: !!a.url 
+          hasUrl: !!a.url
         })));
       }
       console.log('👤 User message received:', {
@@ -402,9 +403,9 @@ export default function DashboardPage() {
         userName: selectedSessionRef.current?.userName
       });
       console.log('🔍 Room match:', data.roomId === selectedSessionRef.current?.roomId);
-      
+
       // Show notification for EVERY user message (even if currently viewing the chat)
-      const notificationMessage = data.message || (data.attachments?.length ? 
+      const notificationMessage = data.message || (data.attachments?.length ?
         `Sent ${data.attachments.length} attachment(s)` : 'New message');
       showNewMessageNotification(
         data.userName || 'User',
@@ -412,14 +413,14 @@ export default function DashboardPage() {
         data.userId,
         data.roomId
       );
-      
+
       // Add to messages if this is the selected session
       if (selectedSessionRef.current && data.roomId === selectedSessionRef.current.roomId) {
         console.log('✅ Adding user message to chat with attachments:', data.attachments?.length || 0);
         if (data.attachments && data.attachments.length > 0) {
           console.log('📎 Attachments:', data.attachments.map((a: any) => ({ type: a.type, filename: a.filename })));
         }
-        
+
         // Create new message object with unique ID
         const newMessage = {
           id: `user-${data.timestamp}-${data.userId}-${Date.now()}`,
@@ -429,7 +430,7 @@ export default function DashboardPage() {
           attachments: data.attachments || [],
           userName: data.userName
         };
-        
+
         // Check for duplicates before adding - use functional update for safety
         setMessages((prev) => {
           // Check if message already exists by content+timestamp+attachments
@@ -438,22 +439,22 @@ export default function DashboardPage() {
             const sameRole = msg.role === 'user';
             const sameTime = Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 1500;
             const sameAttachmentCount = (msg.attachments?.length || 0) === (newMessage.attachments?.length || 0);
-            
+
             // For attachment-only messages, also check attachment filenames
             if (!newMessage.message || newMessage.message.trim() === '') {
-              const sameAttachments = JSON.stringify(msg.attachments?.map((a: any) => a.filename).sort()) === 
-                                     JSON.stringify(newMessage.attachments?.map((a: any) => a.filename).sort());
+              const sameAttachments = JSON.stringify(msg.attachments?.map((a: any) => a.filename).sort()) ===
+                JSON.stringify(newMessage.attachments?.map((a: any) => a.filename).sort());
               return sameContent && sameRole && sameTime && sameAttachments;
             }
-            
+
             return sameContent && sameRole && sameTime && sameAttachmentCount;
           });
-          
+
           if (isDuplicate) {
             console.log('⚠️ Duplicate user message detected, skipping');
             return prev;
           }
-          
+
           console.log('✨ Appending new user message to chat');
           // Append new message to existing array (preserves all previous messages)
           return [...prev, newMessage];
@@ -461,7 +462,7 @@ export default function DashboardPage() {
       } else {
         console.log('⚠️ Not adding - room mismatch or no session selected');
       }
-      
+
       // Update session list with user's message and sort by timestamp
       setSessions((prev) => {
         const updatedSessions = prev.map((s) => {
@@ -471,19 +472,19 @@ export default function DashboardPage() {
             if (!displayMessage && data.attachments && data.attachments.length > 0) {
               displayMessage = `📎 ${data.attachments.length} attachment(s)`;
             }
-            
-            return { 
-              ...s, 
-              lastMessage: displayMessage.substring(0, 50) + (displayMessage.length > 50 ? '...' : ''), 
+
+            return {
+              ...s,
+              lastMessage: displayMessage.substring(0, 50) + (displayMessage.length > 50 ? '...' : ''),
               timestamp: new Date(data.timestamp),
               unread: selectedSessionRef.current?.roomId === data.roomId ? s.unread : s.unread + 1
             };
           }
           return s;
         });
-        
+
         // Sort by timestamp descending (newest first)
-        return updatedSessions.sort((a, b) => 
+        return updatedSessions.sort((a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
       });
@@ -495,34 +496,34 @@ export default function DashboardPage() {
         message: data.message,
         roomId: data.roomId
       });
-      
+
       // Check if this session is in agent mode - if yes, ignore AI response
       const session = sessionsRef.current.find(s => s.roomId === data.roomId);
       if (session?.agentMode) {
         console.log('⚠️ Ignoring AI response - session is in AGENT mode');
         return;
       }
-      
+
       // Add to messages if this is the selected session and NOT in agent mode
-      if (selectedSessionRef.current && 
-          data.roomId === selectedSessionRef.current.roomId && 
-          !selectedSessionRef.current.agentMode) {
+      if (selectedSessionRef.current &&
+        data.roomId === selectedSessionRef.current.roomId &&
+        !selectedSessionRef.current.agentMode) {
         console.log('✅ Adding AI response to chat (AI mode)');
-        
+
         // Use functional update to avoid race conditions
         setMessages((prev) => {
           // Check for duplicate AI messages
-          const isDuplicate = prev.some(msg => 
-            msg.message === data.message && 
+          const isDuplicate = prev.some(msg =>
+            msg.message === data.message &&
             msg.role === 'assistant' &&
             Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 1500
           );
-          
+
           if (isDuplicate) {
             console.log('⚠️ Duplicate AI message detected, skipping');
             return prev;
           }
-          
+
           console.log('✨ Appending AI message to chat');
           return [...prev, {
             id: `ai-${data.timestamp}-${Date.now()}`,
@@ -533,7 +534,7 @@ export default function DashboardPage() {
           }];
         });
       }
-      
+
       // Update session list with AI's response only if NOT in agent mode
       setSessions((prev) =>
         prev.map((s) =>
@@ -547,16 +548,16 @@ export default function DashboardPage() {
     // Listen for agent message echo from server
     socket.on('agent_message', (data) => {
       console.log('👔 Agent message echo received:', data);
-      
+
       // Use functional update for safety
       setMessages((prev) => {
         // Check if we already have this message (by timestamp + message content)
-        const existingIndex = prev.findIndex(msg => 
-          msg.message === data.message && 
+        const existingIndex = prev.findIndex(msg =>
+          msg.message === data.message &&
           msg.role === 'agent' &&
           Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
         );
-        
+
         if (existingIndex !== -1) {
           // Update the existing optimistic message with server data (which has _id)
           console.log('✅ Updating optimistic message with server data');
@@ -598,7 +599,7 @@ export default function DashboardPage() {
       console.log('📤 Admin joining room:', session.roomId);
       // Let backend know admin joined this session
       socket.emit('admin_join_session', { roomId: session.roomId });
-      
+
       console.log('📤 Requesting chat history for room:', session.roomId);
       // Request chat history
       socket.emit('get_history', { roomId: session.roomId, limit: 100 });
@@ -617,13 +618,13 @@ export default function DashboardPage() {
     console.log('🔍 Socket exists?', !!socket);
     console.log('🔍 Socket connected?', socket?.connected);
     console.log('🔍 Socket ID:', socket?.id);
-    
+
     if (!socket || !socket.connected) {
       console.error('❌ Socket is not connected! Cannot send message.');
       alert('Connection lost. Please refresh the page.');
       return;
     }
-    
+
     const agentMessage = {
       message: messageInput.trim() || (attachments.length > 0 ? '' : ''),
       roomId: selectedSession.roomId,
@@ -710,7 +711,7 @@ export default function DashboardPage() {
     console.log('🚀 handleSendFile called!');
     console.log('📎 Selected file:', selectedFile?.name);
     console.log('👤 Selected session:', selectedSession?.userName, selectedSession?.roomId);
-    
+
     if (!selectedFile || !selectedSession) {
       console.error('❌ Missing file or session:', { selectedFile: !!selectedFile, selectedSession: !!selectedSession });
       return;
@@ -725,7 +726,7 @@ export default function DashboardPage() {
         console.log('📖 FileReader finished reading file');
         const base64Data = (reader.result as string).split(',')[1];
         const dataUri = `data:${selectedFile.type};base64,${base64Data}`;
-        
+
         let fileType = 'file';
         if (selectedFile.type.startsWith('image/')) {
           fileType = 'image';
@@ -734,7 +735,7 @@ export default function DashboardPage() {
         } else if (selectedFile.type.startsWith('video/')) {
           fileType = 'video';
         }
-        
+
         const attachment = {
           type: fileType,
           filename: selectedFile.name,
@@ -744,8 +745,8 @@ export default function DashboardPage() {
           url: dataUri, // Add data URI for mobile app compatibility
         };
 
-        handleSendMessage({ preventDefault: () => {} } as any, [attachment]);
-        
+        handleSendMessage({ preventDefault: () => { } } as any, [attachment]);
+
         // Close modal and reset
         setShowFileModal(false);
         setSelectedFile(null);
@@ -851,21 +852,19 @@ export default function DashboardPage() {
             <div className="flex gap-2 mb-3">
               <button
                 onClick={() => setActiveFilter('active')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeFilter === 'active'
-                    ? 'bg-yellow-500 text-black'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${activeFilter === 'active'
+                  ? 'bg-yellow-500 text-black'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                  }`}
               >
                 Active Chats
               </button>
               <button
                 onClick={() => setActiveFilter('all')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeFilter === 'all'
-                    ? 'bg-yellow-500 text-black'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${activeFilter === 'all'
+                  ? 'bg-yellow-500 text-black'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                  }`}
               >
                 All Chats
               </button>
@@ -875,35 +874,61 @@ export default function DashboardPage() {
                 ? `${sessions.filter(s => s.agentMode).length} active`
                 : `${sessions.length} total conversations`}
             </p>
+
+            {/* Search Input */}
+            <div className="mt-3 relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search users or messages..."
+                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
-          
+
           {/* Sessions List */}
           <div className="flex-1 overflow-y-auto divide-y divide-zinc-800">
             {(() => {
-              const filteredSessions = activeFilter === 'active' 
+              const filteredSessions = (activeFilter === 'active'
                 ? sessions.filter(s => s.agentMode)
-                : sessions;
-              
+                : sessions
+              ).filter(s =>
+                s.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                s.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+
               if (filteredSessions.length === 0) {
                 return (
                   <div className="p-4 text-center text-zinc-500">
-                    <p>No {activeFilter === 'active' ? 'active' : ''} chats</p>
+                    <p>{searchQuery ? 'No matches found' : `No ${activeFilter === 'active' ? 'active' : ''} chats`}</p>
                     <p className="text-sm mt-2">
-                      {activeFilter === 'active' 
-                        ? 'Waiting for users to request agent...'
-                        : 'No chat history available'}
+                      {searchQuery
+                        ? 'Try adjusting your search query'
+                        : activeFilter === 'active'
+                          ? 'Waiting for users to request agent...'
+                          : 'No chat history available'}
                     </p>
                   </div>
                 );
               }
-              
+
               return filteredSessions.map((session) => (
                 <button
                   key={session.roomId}
                   onClick={() => handleSelectSession(session)}
-                  className={`w-full p-4 text-left hover:bg-zinc-900 transition-colors ${
-                    selectedSession?.roomId === session.roomId ? 'bg-zinc-900' : ''
-                  }`}
+                  className={`w-full p-4 text-left hover:bg-zinc-900 transition-colors ${selectedSession?.roomId === session.roomId ? 'bg-zinc-900' : ''
+                    }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -982,11 +1007,11 @@ export default function DashboardPage() {
                       }))
                     });
                   }
-                  
+
                   // Check if we need to show a date separator
-                  const showDateSeparator = idx === 0 || 
+                  const showDateSeparator = idx === 0 ||
                     isDifferentDay(new Date(messages[idx - 1].timestamp), new Date(msg.timestamp));
-                  
+
                   return (
                     <div key={idx}>
                       {/* Date Separator */}
@@ -997,167 +1022,166 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       )}
-                      
-                      {/* Message */}
-                  <div
-                    className={`flex ${msg.role === 'agent' || msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                        msg.role === 'agent'
-                          ? 'bg-yellow-500 text-black'
-                          : msg.role === 'assistant'
-                          ? 'bg-zinc-800 text-white'
-                          : 'bg-zinc-900 text-white'
-                      }`}
-                    >
-                      {/* Display attachments (images, PDFs, links) */}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mb-2 space-y-2">
-                          {msg.attachments.map((attachment: any, attIdx: number) => {
-                            console.log(`🖼️ Rendering attachment ${attIdx} in message ${idx}:`, {
-                              type: attachment.type,
-                              filename: attachment.filename,
-                              hasBase64: !!attachment.base64Data,
-                              hasUrl: !!attachment.url
-                            });
-                            
-                            if (attachment.type === 'image') {
-                              // Construct image URL - handle base64, regular URL, or data URL
-                              let imageUrl = '';
-                              
-                              if (attachment.base64Data) {
-                                // Has base64 data - create data URL
-                                imageUrl = `data:${attachment.mimeType || 'image/jpeg'};base64,${attachment.base64Data}`;
-                              } else if (attachment.url) {
-                                // Check if URL is already a data URL or regular URL
-                                imageUrl = attachment.url;
-                              } else if (attachment.uri) {
-                                // Fallback to uri field
-                                imageUrl = attachment.uri;
-                              }
 
-                              console.log('🖼️ Image attachment:', {
-                                filename: attachment.filename,
-                                hasBase64: !!attachment.base64Data,
-                                hasUrl: !!attachment.url,
-                                urlPreview: imageUrl?.substring(0, 100),
-                                isDataUrl: imageUrl?.startsWith('data:')
-                              });
-                              
-                              if (!imageUrl) {
-                                return (
-                                  <div key={attIdx} className="p-4 bg-zinc-800/50 rounded-lg text-zinc-400 text-sm">
-                                    📷 Image unavailable: {attachment.filename || 'Unknown'}
-                                  </div>
-                                );
-                              }
-                              
-                              return (
-                                <img
-                                  key={attIdx}
-                                  src={imageUrl}
-                                  alt={attachment.filename || 'Image'}
-                                  className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                  style={{ maxHeight: '300px', objectFit: 'contain' }}
-                                  onClick={() => {
-                                    setImagePreviewUrl(imageUrl);
-                                    setShowImagePreview(true);
-                                  }}
-                                  onError={(e) => {
-                                    console.error('❌ Failed to load image:', attachment.filename);
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              );
-                            }
-                            if (attachment.type === 'video') {
-                              // Construct video URL from base64 or URL
-                              const videoUrl = attachment.url || (attachment.base64Data 
-                                ? `data:${attachment.mimeType || 'video/mp4'};base64,${attachment.base64Data}`
-                                : null);
-                              
-                              if (!videoUrl) {
-                                return (
-                                  <div key={attIdx} className="p-4 bg-zinc-800/50 rounded-lg text-zinc-400 text-sm">
-                                    🎥 Video unavailable: {attachment.filename || 'Unknown'}
-                                  </div>
-                                );
-                              }
-                              
-                              return (
-                                <div key={attIdx} className="rounded-lg overflow-hidden bg-black" style={{ maxWidth: '400px' }}>
-                                  <video
-                                    controls
-                                    className="w-full h-auto"
-                                    style={{ maxHeight: '300px' }}
-                                  >
-                                    <source src={videoUrl} type={attachment.mimeType || 'video/mp4'} />
-                                    Your browser does not support the video tag.
-                                  </video>
-                                </div>
-                              );
-                            }
-                            if (attachment.type === 'pdf') {
-                              // Construct PDF URL from base64 if URL is not present
-                              const pdfUrl = attachment.url || (attachment.base64Data 
-                                ? `data:${attachment.mimeType || 'application/pdf'};base64,${attachment.base64Data}`
-                                : null);
-                              
-                              return (
-                                <a
-                                  key={attIdx}
-                                  href={pdfUrl || '#'}
-                                  download={attachment.filename || 'document.pdf'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
-                                  onClick={(e) => {
-                                    if (!pdfUrl) {
-                                      e.preventDefault();
-                                      alert('PDF file is not available');
-                                    }
-                                  }}
-                                >
-                                  <span className="text-2xl">📑</span>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{attachment.filename || 'PDF Document'}</p>
-                                    {attachment.size && (
-                                      <p className="text-xs text-zinc-400">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p>
-                                    )}
-                                    <p className="text-xs text-zinc-500">Click to download</p>
-                                  </div>
-                                </a>
-                              );
-                            }
-                            if (attachment.type === 'link') {
-                              return (
-                                <a
-                                  key={attIdx}
-                                  href={attachment.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
-                                >
-                                  <span className="text-xl">🔗</span>
-                                  <p className="text-sm flex-1 min-w-0 truncate">{attachment.linkText || attachment.url}</p>
-                                </a>
-                              );
-                            }
-                            return null;
-                          })}
+                      {/* Message */}
+                      <div
+                        className={`flex ${msg.role === 'agent' || msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-2xl px-4 py-3 ${msg.role === 'agent'
+                            ? 'bg-yellow-500 text-black'
+                            : msg.role === 'assistant'
+                              ? 'bg-zinc-800 text-white'
+                              : 'bg-zinc-900 text-white'
+                            }`}
+                        >
+                          {/* Display attachments (images, PDFs, links) */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="mb-2 space-y-2">
+                              {msg.attachments.map((attachment: any, attIdx: number) => {
+                                console.log(`🖼️ Rendering attachment ${attIdx} in message ${idx}:`, {
+                                  type: attachment.type,
+                                  filename: attachment.filename,
+                                  hasBase64: !!attachment.base64Data,
+                                  hasUrl: !!attachment.url
+                                });
+
+                                if (attachment.type === 'image') {
+                                  // Construct image URL - handle base64, regular URL, or data URL
+                                  let imageUrl = '';
+
+                                  if (attachment.base64Data) {
+                                    // Has base64 data - create data URL
+                                    imageUrl = `data:${attachment.mimeType || 'image/jpeg'};base64,${attachment.base64Data}`;
+                                  } else if (attachment.url) {
+                                    // Check if URL is already a data URL or regular URL
+                                    imageUrl = attachment.url;
+                                  } else if (attachment.uri) {
+                                    // Fallback to uri field
+                                    imageUrl = attachment.uri;
+                                  }
+
+                                  console.log('🖼️ Image attachment:', {
+                                    filename: attachment.filename,
+                                    hasBase64: !!attachment.base64Data,
+                                    hasUrl: !!attachment.url,
+                                    urlPreview: imageUrl?.substring(0, 100),
+                                    isDataUrl: imageUrl?.startsWith('data:')
+                                  });
+
+                                  if (!imageUrl) {
+                                    return (
+                                      <div key={attIdx} className="p-4 bg-zinc-800/50 rounded-lg text-zinc-400 text-sm">
+                                        📷 Image unavailable: {attachment.filename || 'Unknown'}
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <img
+                                      key={attIdx}
+                                      src={imageUrl}
+                                      alt={attachment.filename || 'Image'}
+                                      className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                      style={{ maxHeight: '300px', objectFit: 'contain' }}
+                                      onClick={() => {
+                                        setImagePreviewUrl(imageUrl);
+                                        setShowImagePreview(true);
+                                      }}
+                                      onError={(e) => {
+                                        console.error('❌ Failed to load image:', attachment.filename);
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  );
+                                }
+                                if (attachment.type === 'video') {
+                                  // Construct video URL from base64 or URL
+                                  const videoUrl = attachment.url || (attachment.base64Data
+                                    ? `data:${attachment.mimeType || 'video/mp4'};base64,${attachment.base64Data}`
+                                    : null);
+
+                                  if (!videoUrl) {
+                                    return (
+                                      <div key={attIdx} className="p-4 bg-zinc-800/50 rounded-lg text-zinc-400 text-sm">
+                                        🎥 Video unavailable: {attachment.filename || 'Unknown'}
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div key={attIdx} className="rounded-lg overflow-hidden bg-black" style={{ maxWidth: '400px' }}>
+                                      <video
+                                        controls
+                                        className="w-full h-auto"
+                                        style={{ maxHeight: '300px' }}
+                                      >
+                                        <source src={videoUrl} type={attachment.mimeType || 'video/mp4'} />
+                                        Your browser does not support the video tag.
+                                      </video>
+                                    </div>
+                                  );
+                                }
+                                if (attachment.type === 'pdf') {
+                                  // Construct PDF URL from base64 if URL is not present
+                                  const pdfUrl = attachment.url || (attachment.base64Data
+                                    ? `data:${attachment.mimeType || 'application/pdf'};base64,${attachment.base64Data}`
+                                    : null);
+
+                                  return (
+                                    <a
+                                      key={attIdx}
+                                      href={pdfUrl || '#'}
+                                      download={attachment.filename || 'document.pdf'}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
+                                      onClick={(e) => {
+                                        if (!pdfUrl) {
+                                          e.preventDefault();
+                                          alert('PDF file is not available');
+                                        }
+                                      }}
+                                    >
+                                      <span className="text-2xl">📑</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{attachment.filename || 'PDF Document'}</p>
+                                        {attachment.size && (
+                                          <p className="text-xs text-zinc-400">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p>
+                                        )}
+                                        <p className="text-xs text-zinc-500">Click to download</p>
+                                      </div>
+                                    </a>
+                                  );
+                                }
+                                if (attachment.type === 'link') {
+                                  return (
+                                    <a
+                                      key={attIdx}
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors"
+                                    >
+                                      <span className="text-xl">🔗</span>
+                                      <p className="text-sm flex-1 min-w-0 truncate">{attachment.linkText || attachment.url}</p>
+                                    </a>
+                                  );
+                                }
+                                return null;
+                              })}
+                            </div>
+                          )}
+
+                          {/* Only show message text if it exists */}
+                          {msg.message && msg.message.trim() && (
+                            <p className="text-sm whitespace-pre-wrap break-all">{parseTextWithLinks(msg.message, msg.role === 'agent')}</p>
+                          )}
+                          <p className="text-xs mt-1 opacity-70">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </p>
                         </div>
-                      )}
-                      
-                      {/* Only show message text if it exists */}
-                      {msg.message && msg.message.trim() && (
-                        <p className="text-sm whitespace-pre-wrap break-all">{parseTextWithLinks(msg.message, msg.role === 'agent')}</p>
-                      )}
-                      <p className="text-xs mt-1 opacity-70">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -1182,7 +1206,7 @@ export default function DashboardPage() {
                   >
                     📎
                   </label>
-                  
+
                   {/* Emoji Picker Button */}
                   <div className="relative emoji-picker-container">
                     <button
@@ -1193,7 +1217,7 @@ export default function DashboardPage() {
                     >
                       😊
                     </button>
-                    
+
                     {/* Emoji Picker Dropdown */}
                     {showEmojiPicker && (
                       <div className="absolute bottom-full right-0 mb-2 z-50">
@@ -1206,7 +1230,7 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
@@ -1239,20 +1263,20 @@ export default function DashboardPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowFileModal(false)}>
                   <div className="bg-zinc-900 rounded-lg p-6 w-96 max-w-[90%]" onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4 text-yellow-500">
-                      {selectedFile.type.startsWith('image/') 
-                        ? 'Send Image' 
+                      {selectedFile.type.startsWith('image/')
+                        ? 'Send Image'
                         : selectedFile.type.startsWith('video/')
-                        ? 'Send Video'
-                        : 'Send PDF'}
+                          ? 'Send Video'
+                          : 'Send PDF'}
                     </h3>
-                    
+
                     {/* File Preview */}
                     {filePreview && selectedFile.type.startsWith('image/') ? (
                       <img src={filePreview} alt="Preview" className="w-full max-h-64 object-contain mb-4 rounded-lg bg-zinc-800" />
                     ) : selectedFile.type.startsWith('video/') ? (
-                      <video 
-                        src={filePreview || URL.createObjectURL(selectedFile)} 
-                        controls 
+                      <video
+                        src={filePreview || URL.createObjectURL(selectedFile)}
+                        controls
                         className="w-full max-h-64 mb-4 rounded-lg bg-black"
                       />
                     ) : (
@@ -1325,7 +1349,7 @@ export default function DashboardPage() {
 
       {/* Image Preview Modal */}
       {showImagePreview && imagePreviewUrl && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95"
           onClick={() => setShowImagePreview(false)}
         >
