@@ -818,6 +818,30 @@ export default function DashboardPage() {
             <p className="text-xs md:text-sm text-zinc-400">Admin: {adminName}</p>
           </div>
         </div>
+        <div className="flex flex-1 max-w-[150px] sm:max-w-md mx-2 sm:mx-4 relative group">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-yellow-500 transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            className="w-full pl-9 pr-8 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 focus:bg-zinc-900 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
         <button
           onClick={handleLogout}
           className="px-3 md:px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
@@ -874,27 +898,6 @@ export default function DashboardPage() {
                 ? `${sessions.filter(s => s.agentMode).length} active`
                 : `${sessions.length} total conversations`}
             </p>
-
-            {/* Search Input */}
-            <div className="mt-3 relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search users or messages..."
-                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
           </div>
 
           {/* Sessions List */}
@@ -1348,40 +1351,42 @@ export default function DashboardPage() {
       </div>
 
       {/* Image Preview Modal */}
-      {showImagePreview && imagePreviewUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95"
-          onClick={() => setShowImagePreview(false)}
-        >
-          {/* Close button */}
-          <button
+      {
+        showImagePreview && imagePreviewUrl && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95"
             onClick={() => setShowImagePreview(false)}
-            className="absolute top-4 right-4 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-black bg-opacity-60 hover:bg-opacity-80 transition-all"
           >
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            {/* Close button */}
+            <button
+              onClick={() => setShowImagePreview(false)}
+              className="absolute top-4 right-4 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-black bg-opacity-60 hover:bg-opacity-80 transition-all"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
 
-          {/* Full-screen image */}
-          <img
-            src={imagePreviewUrl}
-            alt="Full screen preview"
-            className="max-w-full max-h-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-    </div>
+            {/* Full-screen image */}
+            <img
+              src={imagePreviewUrl}
+              alt="Full screen preview"
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )
+      }
+    </div >
   );
 }
