@@ -842,12 +842,22 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
-        <button
-          onClick={handleLogout}
-          className="px-3 md:px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/knowledge-base')}
+            className="px-3 md:px-4 py-2 text-sm bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg transition-colors flex items-center gap-1.5"
+            title="Manage AI Knowledge Base"
+          >
+            <span>🧠</span>
+            <span className="hidden md:inline">Knowledge Base</span>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-3 md:px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
