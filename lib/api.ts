@@ -46,4 +46,67 @@ export const chatAPI = {
   },
 };
 
+export interface KBEntry {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  isActive: boolean;
+  priority: number;
+  createdBy: { full_name: string; email: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const KB_CATEGORIES = [
+  'About Indulge',
+  'Services',
+  'Pricing',
+  'Policies',
+  'Destinations',
+  'Dining',
+  'Travel',
+  'Events',
+  'Behaviour Rules',
+  'Other',
+] as const;
+
+export const knowledgeBaseAPI = {
+  getAll: async (params?: {
+    category?: string;
+    isActive?: boolean;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const response = await api.get('/knowledge-base', { params });
+    return response.data as { entries: KBEntry[]; pagination: { page: number; limit: number; total: number; pages: number } };
+  },
+
+  getOne: async (id: string) => {
+    const response = await api.get(`/knowledge-base/${id}`);
+    return response.data as { entry: KBEntry };
+  },
+
+  create: async (data: { title: string; content: string; category: string; isActive?: boolean; priority?: number }) => {
+    const response = await api.post('/knowledge-base', data);
+    return response.data as { message: string; entry: KBEntry };
+  },
+
+  update: async (id: string, data: Partial<{ title: string; content: string; category: string; isActive: boolean; priority: number }>) => {
+    const response = await api.put(`/knowledge-base/${id}`, data);
+    return response.data as { message: string; entry: KBEntry };
+  },
+
+  toggleActive: async (id: string) => {
+    const response = await api.patch(`/knowledge-base/${id}/toggle`);
+    return response.data as { message: string; entry: KBEntry };
+  },
+
+  remove: async (id: string) => {
+    const response = await api.delete(`/knowledge-base/${id}`);
+    return response.data as { message: string };
+  },
+};
+
 export default api;
