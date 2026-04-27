@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { knowledgeBaseAPI, KB_CATEGORIES, type KBEntry } from '@/lib/api';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Point the worker at the bundled copy shipped with pdfjs-dist
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Use the locally served worker (copied to /public) to avoid CDN version mismatches
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // ── Category config (dark-theme aware) ─────────────────────────────────────
 const CATEGORY_META: Record<string, { color: string; bg: string; dot: string }> = {
@@ -186,8 +186,9 @@ export default function KnowledgeBasePage() {
         title: f.title || file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' '),
       }));
       setToast({ msg: `Extracted ${pdf.numPages} page${pdf.numPages > 1 ? 's' : ''} from PDF.`, type: 'success' });
-    } catch {
-      setFormErr('Failed to parse PDF. Make sure it contains readable text (not scanned images).');
+    } catch (err: any) {
+      console.error('[PDF] Parse error:', err);
+      setFormErr(`Failed to parse PDF: ${err?.message || 'Unknown error'}. Make sure it contains readable text (not scanned images).`);
       setPdfFileName('');
     } finally {
       setPdfParsing(false);
