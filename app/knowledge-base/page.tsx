@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { knowledgeBaseAPI, KB_CATEGORIES, type KBEntry } from '@/lib/api';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Point the worker at the bundled copy shipped with pdfjs-dist
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 // ── Category config (dark-theme aware) ─────────────────────────────────────
 const CATEGORY_META: Record<string, { color: string; bg: string; dot: string }> = {
@@ -58,6 +62,12 @@ export default function KnowledgeBasePage() {
   const [form, setForm]             = useState({ ...EMPTY_FORM });
   const [saving, setSaving]         = useState(false);
   const [formErr, setFormErr]       = useState('');
+
+  // PDF parsing
+  const [pdfParsing, setPdfParsing]   = useState(false);
+  const [pdfFileName, setPdfFileName] = useState('');
+  const [pdfPageCount, setPdfPageCount] = useState(0);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const [preview, setPreview]       = useState<KBEntry | null>(null);
   const [delTarget, setDelTarget]   = useState<KBEntry | null>(null);
@@ -132,7 +142,58 @@ export default function KnowledgeBasePage() {
     setPreview(null);
   };
 
-  const closeDrawer = () => { setDrawerOpen(false); setEditing(null); setFormErr(''); };
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setEditing(null);
+    setFormErr('');
+    setPdfFileName('');
+    setPdfPageCount(0);
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      setFormErr('Only PDF files are supported.');
+      return;
+    }
+
+    setPdfParsing(true);
+    setPdfFileName(file.name);
+    setFormErr('');
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      setPdfPageCount(pdf.numPages);
+
+      const textParts: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (pageText) textParts.push(`[Page ${i}]\n${pageText}`);
+      }
+
+      const extracted = textParts.join('\n\n').slice(0, 10000);
+      setForm(f => ({
+        ...f,
+        content: extracted,
+        title: f.title || file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' '),
+      }));
+      setToast({ msg: `Extracted ${pdf.numPages} page${pdf.numPages > 1 ? 's' : ''} from PDF.`, type: 'success' });
+    } catch {
+      setFormErr('Failed to parse PDF. Make sure it contains readable text (not scanned images).');
+      setPdfFileName('');
+    } finally {
+      setPdfParsing(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -610,6 +671,53 @@ export default function KnowledgeBasePage() {
                   </div>
                 </div>
 
+                {/* PDF Upload */}
+                <div>
+                  <p className="text-sm font-medium text-zinc-300 mb-1.5">Import from PDF <span className="text-zinc-600 font-normal text-xs ml-1">(optional)</span></p>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfUpload}
+                    className="hidden"
+                    id="pdf-upload"
+                  />
+                  <label
+                    htmlFor="pdf-upload"
+                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-all ${
+                      pdfParsing
+                        ? 'border-yellow-500/50 bg-yellow-500/5 cursor-wait'
+                        : pdfFileName
+                        ? 'border-yellow-500/40 bg-yellow-500/5'
+                        : 'border-zinc-700 hover:border-yellow-500/40 hover:bg-yellow-500/5'
+                    }`}
+                  >
+                    {pdfParsing ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                        <span className="text-sm text-yellow-400">Extracting text from PDF…</span>
+                      </>
+                    ) : pdfFileName ? (
+                      <>
+                        <svg className="w-5 h-5 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-yellow-400 font-medium truncate">{pdfFileName}</p>
+                          {pdfPageCount > 0 && <p className="text-xs text-zinc-500">{pdfPageCount} page{pdfPageCount > 1 ? 's' : ''} extracted → content populated below</p>}
+                        </div>
+                        <span className="text-xs text-zinc-500 hover:text-white shrink-0">Change</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 text-zinc-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                        <div>
+                          <p className="text-sm text-zinc-400">Upload a PDF to auto-extract its content</p>
+                          <p className="text-xs text-zinc-600 mt-0.5">Text will be extracted and filled into the content field below</p>
+                        </div>
+                      </>
+                    )}
+                  </label>
+                </div>
+
                 {/* Content */}
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1.5">
@@ -621,7 +729,7 @@ export default function KnowledgeBasePage() {
                   <textarea
                     value={form.content}
                     onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                    placeholder={`Write the knowledge the AI should have.\n\nExample:\n• Indulge offers three membership tiers: Basic, Premium, and Elite.\n• Elite members get access to private events and dedicated concierge support 24/7.`}
+                    placeholder={`Write the knowledge the AI should have, or upload a PDF above to auto-fill.\n\nExample:\n• Indulge offers three membership tiers: Basic, Premium, and Elite.\n• Elite members get access to private events and dedicated concierge support 24/7.`}
                     maxLength={10000}
                     required
                     rows={14}
